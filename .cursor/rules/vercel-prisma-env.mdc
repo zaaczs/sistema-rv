@@ -1,0 +1,28 @@
+---
+description: Vercel + Supabase — DATABASE_URL, DIRECT_URL e NextAuth obrigatórios
+globs: prisma/**/*
+alwaysApply: false
+---
+
+# Deploy na Vercel (Prisma + Supabase)
+
+Sem estas variáveis no painel da Vercel (**Settings → Environment Variables**), o runtime falha com `Environment variable not found: DATABASE_URL` e o login retorna **401**.
+
+## Obrigatório (Production e, se usar preview, Preview)
+
+| Variável | Uso |
+|----------|-----|
+| `DATABASE_URL` | Session pooler do Supabase (`*.pooler.supabase.com`, usuário `postgres.PROJECT_REF`). App + Prisma em runtime. |
+| `DIRECT_URL` | Conexão direta (`db.PROJECT_REF.supabase.co`, usuário `postgres`). Exigida pelo `schema.prisma` (`directUrl`). |
+| `NEXTAUTH_SECRET` | Secret forte (ex. `openssl rand -base64 32`). |
+| `NEXTAUTH_URL` | URL pública do deploy, ex. `https://sistema-rv.vercel.app` (sem barra final). |
+
+Copie os valores do `.env` local (nunca commite o `.env`). Senha na URL: codificar `@` como `%40`, usar `?sslmode=require` no final se necessário.
+
+## Depois de alterar env
+
+Fazer **Redeploy** (Deployments → ⋮ → Redeploy) para as funções serverless enxergarem as novas variáveis.
+
+## Local
+
+`npx prisma db push` usa `DIRECT_URL`; o app em dev usa `DATABASE_URL` (pooler). Manter as duas no `.env`.

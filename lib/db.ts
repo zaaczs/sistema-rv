@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export const prisma =
   globalForPrisma.prisma ??
@@ -8,4 +8,6 @@ export const prisma =
     log: ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Em produção (Vercel/serverless) também reutiliza a instância no warm container;
+// evita estourar conexões no pooler do Supabase.
+globalForPrisma.prisma = prisma;

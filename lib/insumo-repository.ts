@@ -42,7 +42,7 @@ export async function listInsumos(range?: { gte: Date; lte: Date }): Promise<Ins
         }[]
       >`
         SELECT id, nome, valor, data, categoria, createdAt
-        FROM Insumo
+        FROM "Insumo"
         WHERE data >= ${range.gte} AND data <= ${range.lte}
         ORDER BY data DESC, createdAt DESC
       `
@@ -57,7 +57,7 @@ export async function listInsumos(range?: { gte: Date; lte: Date }): Promise<Ins
         }[]
       >`
         SELECT id, nome, valor, data, categoria, createdAt
-        FROM Insumo
+        FROM "Insumo"
         ORDER BY data DESC, createdAt DESC
       `;
   return rows.map(rowToEntity);
@@ -66,7 +66,7 @@ export async function listInsumos(range?: { gte: Date; lte: Date }): Promise<Ins
 export async function sumInsumosValor(range: { gte: Date; lte: Date }): Promise<number> {
   const [row] = await prisma.$queryRaw<{ s: unknown }[]>`
     SELECT COALESCE(SUM(valor), 0) AS s
-    FROM Insumo
+    FROM "Insumo"
     WHERE data >= ${range.gte} AND data <= ${range.lte}
   `;
   const v = row?.s;
@@ -87,7 +87,7 @@ export async function findInsumoById(id: string): Promise<InsumoEntity | null> {
     }[]
   >`
     SELECT id, nome, valor, data, categoria, createdAt
-    FROM Insumo
+    FROM "Insumo"
     WHERE id = ${id}
     LIMIT 1
   `;
@@ -104,7 +104,7 @@ export async function createInsumo(input: {
   const id = randomUUID();
   const createdAt = new Date();
   await prisma.$executeRaw`
-    INSERT INTO Insumo (id, nome, valor, data, categoria, createdAt)
+    INSERT INTO "Insumo" (id, nome, valor, data, categoria, createdAt)
     VALUES (${id}, ${input.nome}, ${input.valor}, ${input.data}, ${input.categoria}, ${createdAt})
   `;
   const created = await findInsumoById(id);
@@ -124,7 +124,7 @@ export async function updateInsumo(
   if (parts.length === 0) return findInsumoById(id);
 
   await prisma.$executeRaw`
-    UPDATE Insumo SET ${Prisma.join(parts, ", ")}
+    UPDATE "Insumo" SET ${Prisma.join(parts, ", ")}
     WHERE id = ${id}
   `;
   return findInsumoById(id);
@@ -133,6 +133,6 @@ export async function updateInsumo(
 export async function deleteInsumo(id: string): Promise<boolean> {
   const existing = await findInsumoById(id);
   if (!existing) return false;
-  await prisma.$executeRaw`DELETE FROM Insumo WHERE id = ${id}`;
+  await prisma.$executeRaw`DELETE FROM "Insumo" WHERE id = ${id}`;
   return true;
 }
