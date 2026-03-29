@@ -1,0 +1,69 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  ShoppingCart,
+  BarChart3,
+  Upload,
+  LogOut,
+  Receipt,
+} from "lucide-react";
+
+const nav = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/produtos", label: "Produtos / SKUs", icon: Package },
+  { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/vendas", label: "Vendas", icon: ShoppingCart },
+  { href: "/insumos", label: "Insumos", icon: Receipt },
+  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
+  { href: "/importar", label: "Importar", icon: Upload },
+];
+
+export function DashboardSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="flex w-56 flex-col border-r bg-card">
+      <div className="p-4 font-semibold flex items-center gap-2">
+        <span className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">RV</span>
+        Reville Fitness
+      </div>
+      <nav className="flex-1 space-y-1 p-2">
+        {nav.map((item) => {
+          const Icon = item.icon;
+          const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-all duration-150 cursor-pointer",
+                active ? "bg-primary text-primary-foreground" : "hover:bg-muted hover:shadow-sm active:scale-[0.98]"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="border-t p-2">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </Button>
+      </div>
+    </aside>
+  );
+}
