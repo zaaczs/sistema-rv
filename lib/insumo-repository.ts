@@ -41,10 +41,10 @@ export async function listInsumos(range?: { gte: Date; lte: Date }): Promise<Ins
           createdAt: Date;
         }[]
       >`
-        SELECT id, nome, valor, data, categoria, createdAt
+        SELECT id, nome, valor, data, categoria, "createdAt"
         FROM "Insumo"
         WHERE data >= ${range.gte} AND data <= ${range.lte}
-        ORDER BY data DESC, createdAt DESC
+        ORDER BY data DESC, "createdAt" DESC
       `
     : await prisma.$queryRaw<
         {
@@ -56,9 +56,9 @@ export async function listInsumos(range?: { gte: Date; lte: Date }): Promise<Ins
           createdAt: Date;
         }[]
       >`
-        SELECT id, nome, valor, data, categoria, createdAt
+        SELECT id, nome, valor, data, categoria, "createdAt"
         FROM "Insumo"
-        ORDER BY data DESC, createdAt DESC
+        ORDER BY data DESC, "createdAt" DESC
       `;
   return rows.map(rowToEntity);
 }
@@ -86,7 +86,7 @@ export async function findInsumoById(id: string): Promise<InsumoEntity | null> {
       createdAt: Date;
     }[]
   >`
-    SELECT id, nome, valor, data, categoria, createdAt
+    SELECT id, nome, valor, data, categoria, "createdAt"
     FROM "Insumo"
     WHERE id = ${id}
     LIMIT 1
@@ -104,7 +104,7 @@ export async function createInsumo(input: {
   const id = randomUUID();
   const createdAt = new Date();
   await prisma.$executeRaw`
-    INSERT INTO "Insumo" (id, nome, valor, data, categoria, createdAt)
+    INSERT INTO "Insumo" (id, nome, valor, data, categoria, "createdAt")
     VALUES (${id}, ${input.nome}, ${input.valor}, ${input.data}, ${input.categoria}, ${createdAt})
   `;
   const created = await findInsumoById(id);
