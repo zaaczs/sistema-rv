@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   description: "Moda Fitness — Varejo e Atacado — Controle de vendas e estoque",
 };
 
+export const viewport = {
+  width: "device-width" as const,
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

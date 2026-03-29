@@ -5,6 +5,11 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+
+type DashboardSidebarProps = {
+  className?: string;
+  onNavigate?: () => void;
+};
 import {
   LayoutDashboard,
   Package,
@@ -26,13 +31,15 @@ const nav = [
   { href: "/importar", label: "Importar", icon: Upload },
 ];
 
-export function DashboardSidebar() {
+export function DashboardSidebar({ className, onNavigate }: DashboardSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-56 flex-col border-r bg-card">
-      <div className="p-4 font-semibold flex items-center gap-2">
-        <span className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">RV</span>
+    <aside className={cn("flex w-56 shrink-0 flex-col bg-card md:border-r", className)}>
+      <div className="hidden p-4 font-semibold md:flex md:items-center md:gap-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+          RV
+        </span>
         Reville Fitness
       </div>
       <nav className="flex-1 space-y-1 p-2">
@@ -43,9 +50,10 @@ export function DashboardSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => onNavigate?.()}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-all duration-150 cursor-pointer",
-                active ? "bg-primary text-primary-foreground" : "hover:bg-muted hover:shadow-sm active:scale-[0.98]"
+                "flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-all duration-150",
+                active ? "bg-primary text-primary-foreground" : "hover:bg-muted hover:shadow-sm active:scale-[0.98]",
               )}
             >
               <Icon className="h-4 w-4" />

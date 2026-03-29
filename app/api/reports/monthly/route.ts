@@ -5,19 +5,20 @@ import { prisma } from "@/lib/db";
 import { sumInsumosValor } from "@/lib/insumo-repository";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const { searchParams } = new URL(req.url);
-  const month = parseInt(searchParams.get("month") ?? String(new Date().getMonth() + 1), 10);
-  const year = parseInt(searchParams.get("year") ?? String(new Date().getFullYear()), 10);
-  const tipo = searchParams.get("tipo") ?? "all";
+    const { searchParams } = new URL(req.url);
+    const month = parseInt(searchParams.get("month") ?? String(new Date().getMonth() + 1), 10);
+    const year = parseInt(searchParams.get("year") ?? String(new Date().getFullYear()), 10);
+    const tipo = searchParams.get("tipo") ?? "all";
 
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 0, 23, 59, 59);
-  const whereTipo = tipo !== "all" ? { tipo } : {};
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0, 23, 59, 59);
+    const whereTipo = tipo !== "all" ? { tipo } : {};
 
-  const [totals, byTipo, groupedByProduct, totalInsumos] = await Promise.all([
+    const [totals, byTipo, groupedByProduct, totalInsumos] = await Promise.all([
     prisma.sale.aggregate({
       where: { data: { gte: start, lte: end }, ...whereTipo },
       _sum: { receita: true, lucroBruto: true, lucroLiquido: true, taxaCartao: true, quantidade: true },
@@ -65,29 +66,36 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b.lucro - a.lucro)
     .slice(0, 10);
 
-  return NextResponse.json({
-    month,
-    year,
-    tipo,
-    totals: {
-      revenue: Number(totals._sum.receita ?? 0),
-      grossProfit: Number(totals._sum.lucroBruto ?? 0),
-      cardFee: Number(totals._sum.taxaCartao ?? 0),
-      netProfit: netProfitSales,
-      totalInsumos,
-      realProfit,
-      count: totals._count ?? 0,
-      units: totals._sum.quantidade ?? 0,
-    },
-    byTipo: byTipo.map((b) => ({
-      tipo: b.tipo,
-      revenue: Number(b._sum.receita ?? 0),
-      netProfit: Number(b._sum.lucroLiquido ?? 0),
-      units: b._sum.quantidade ?? 0,
-      count: b._count,
-    })),
-    byProduct: reportByProduct,
-    rankingUnits,
-    rankingProfit,
-  });
+    return NextResponse.json({
+      month,
+      year,
+      tipo,
+      totals: {
+        revenue: Number(totals._sum.receita ?? 0),
+        grossProfit: Number(totals._sum.lucroBruto ?? 0),
+        cardFee: Number(totals._sum.taxaCartao ?? 0),
+        netProfit: netProfitSales,
+        totalInsumos,
+        realProfit,
+        count: totals._count ?? 0,
+        units: totals._sum.quantidade ?? 0,
+      },
+      byTipo: byTipo.map((b) => ({
+        tipo: b.tipo,
+        revenue: Number(b._sum.receita ?? 0),
+        netProfit: Number(b._sum.lucroLiquido ?? 0),
+        units: b._sum.quantidade ?? 0,
+        count: b._count,
+      })),
+      byProduct: reportByProduct,
+      rankingUnits,
+      rankingProfit,
+    });
+  } catch (e) {
+    console.error("GET /api/reports/monthly:", e);
+    return NextResponse.json(
+      { error: "Não foi possível carregar o relatório. Tente novamente." },
+      { status: 500 },
+    );
+  }
 }
