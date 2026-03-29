@@ -16,7 +16,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Package, Percent, Receipt, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { DollarSign, Package, Percent, Receipt, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { getIsoWeekAndYear, isoWeeksInYear } from "@/lib/iso-week";
 import { cn } from "@/lib/utils";
 
@@ -97,6 +98,7 @@ export function DashboardCharts() {
   const [series, setSeries] = useState<ChartPoint[] | null>(null);
   const [chartError, setChartError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retryKey, setRetryKey] = useState(0);
   const [period, setPeriod] = useState<Period>("monthly");
 
   const now = useMemo(() => new Date(), []);
@@ -132,83 +134,116 @@ export function DashboardCharts() {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function loadDashboard() {
       setLoading(true);
       setError(null);
       setChartError(null);
       const params = buildParams();
+      const url = `/api/reports/dashboard?${params}`;
 
-      try {
-        const [cRes, chRes] = await Promise.all([
-          fetch(`/api/reports/compare?${params}`),
-          fetch(`/api/reports/chart?${params}`),
-        ]);
+      const attempts = 4;
+      const baseDelay = 500;
+      let lastErr = "Não foi possível carregar o dashboard.";
 
-        const cText = await cRes.text();
-        let chJson: { data?: ChartPoint[]; error?: string } | null = null;
-        try {
-          chJson = await chRes.json();
-        } catch {
-          chJson = null;
-        }
-
+      for (let attempt = 0; attempt < attempts; attempt++) {
         if (cancelled) return;
+        try {
+          const res = await fetch(url);
+          const json: unknown = await res.json().catch(() => null);
 
-        if (cRes.ok && cText) {
-          const payload = JSON.parse(cText) as CompareData | { error?: string };
-          if (payload && typeof payload === "object" && "current" in payload) {
-            setData(payload as CompareData);
-          } else {
+          if (cancelled) return;
+
+          if (!res.ok) {
+            const msg =
+              json && typeof json === "object" && "error" in json && typeof (json as { error: unknown }).error === "string"
+                ? (json as { error: string }).error
+                : `Erro ${res.status}`;
+            lastErr = msg;
+            if (attempt < attempts - 1) {
+              await new Promise((r) => setTimeout(r, baseDelay * 2 ** attempt));
+              continue;
+            }
             setData(null);
-            setError(
-              payload && typeof payload === "object" && "error" in payload && payload.error
-                ? String(payload.error)
-                : "Resposta inválida dos indicadores."
-            );
+            setSeries(null);
+            setError(msg);
+            setChartError(msg);
+            break;
           }
-        } else {
-          setData(null);
-          const payload = cText ? (JSON.parse(cText) as { error?: string }) : null;
-          setError(
-            payload?.error ? String(payload.error) : "Falha ao carregar indicadores."
-          );
-        }
 
-        if (chRes.ok && Array.isArray(chJson?.data)) {
-          setSeries(
-            chJson!.data!.map((pt: ChartPoint & { insumos?: number; realProfit?: number }) => ({
-              label: pt.label,
-              revenue: pt.revenue,
-              netProfit: pt.netProfit,
-              units: pt.units,
-              insumos: typeof pt.insumos === "number" ? pt.insumos : 0,
-              realProfit:
-                typeof pt.realProfit === "number" ? pt.realProfit : pt.netProfit - (typeof pt.insumos === "number" ? pt.insumos : 0),
-            }))
-          );
-        } else {
-          setSeries(null);
-          setChartError(
-            chJson && typeof chJson.error === "string" ? chJson.error : "Falha ao carregar dados do gráfico."
-          );
+          if (
+            !json ||
+            typeof json !== "object" ||
+            !("current" in json) ||
+            !("chart" in json) ||
+            typeof (json as { chart: unknown }).chart !== "object"
+          ) {
+            lastErr = "Resposta inválida do servidor.";
+            if (attempt < attempts - 1) {
+              await new Promise((r) => setTimeout(r, baseDelay * 2 ** attempt));
+              continue;
+            }
+            setData(null);
+            setSeries(null);
+            setError(lastErr);
+            setChartError(lastErr);
+            break;
+          }
+
+          const payload = json as CompareData & {
+            chart: { data?: ChartPoint[]; period?: string };
+          };
+
+          setData({
+            current: payload.current,
+            previous: payload.previous,
+            compare: payload.compare,
+          });
+
+          const raw = payload.chart?.data;
+          if (Array.isArray(raw)) {
+            setSeries(
+              raw.map((pt: ChartPoint & { insumos?: number; realProfit?: number }) => ({
+                label: pt.label,
+                revenue: pt.revenue,
+                netProfit: pt.netProfit,
+                units: pt.units,
+                insumos: typeof pt.insumos === "number" ? pt.insumos : 0,
+                realProfit:
+                  typeof pt.realProfit === "number"
+                    ? pt.realProfit
+                    : pt.netProfit - (typeof pt.insumos === "number" ? pt.insumos : 0),
+              })),
+            );
+            setChartError(null);
+          } else {
+            setSeries(null);
+            setChartError("Dados do gráfico indisponíveis.");
+          }
+          setError(null);
+          break;
+        } catch {
+          lastErr = "Falha de rede. Verifique a conexão.";
+          if (attempt < attempts - 1) {
+            await new Promise((r) => setTimeout(r, baseDelay * 2 ** attempt));
+            continue;
+          }
+          if (!cancelled) {
+            setData(null);
+            setSeries(null);
+            setError(lastErr);
+            setChartError(lastErr);
+          }
         }
-      } catch {
-        if (!cancelled) {
-          setError("Não foi possível carregar os indicadores agora.");
-          setChartError("Não foi possível carregar os gráficos.");
-          setData(null);
-          setSeries(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
+
+      if (!cancelled) setLoading(false);
     }
 
-    load();
+    loadDashboard();
     return () => {
       cancelled = true;
     };
-  }, [buildParams]);
+  }, [buildParams, retryKey]);
 
   const labels = useMemo(() => {
     if (period === "weekly") {
@@ -250,7 +285,7 @@ export function DashboardCharts() {
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Período</Label>
           <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full min-w-0 sm:w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -266,7 +301,7 @@ export function DashboardCharts() {
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Mês</Label>
               <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full min-w-0 sm:w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -281,7 +316,7 @@ export function DashboardCharts() {
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Ano</Label>
               <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-full min-w-0 sm:w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -300,7 +335,7 @@ export function DashboardCharts() {
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Ano</Label>
             <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-full min-w-0 sm:w-[120px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -319,7 +354,7 @@ export function DashboardCharts() {
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Ano (ISO)</Label>
               <Select value={String(isoYear)} onValueChange={(v) => setIsoYear(Number(v))}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-full min-w-0 sm:w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -334,7 +369,7 @@ export function DashboardCharts() {
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Semana</Label>
               <Select value={String(safeWeek)} onValueChange={(v) => setIsoWeek(Number(v))}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -354,7 +389,15 @@ export function DashboardCharts() {
         <p className="text-sm text-muted-foreground">Carregando indicadores e gráficos...</p>
       )}
 
-      {error && <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div>}
+      {error && (
+        <div className="flex flex-col gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between">
+          <span>{error}</span>
+          <Button type="button" variant="outline" size="sm" className="shrink-0 border-destructive/40" onClick={() => setRetryKey((k) => k + 1)}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Tentar novamente
+          </Button>
+        </div>
+      )}
 
       {data && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -415,8 +458,14 @@ export function DashboardCharts() {
         </div>
       )}
 
-      {chartError && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{chartError}</div>
+      {chartError && !error && (
+        <div className="flex flex-col gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between">
+          <span>{chartError}</span>
+          <Button type="button" variant="outline" size="sm" className="shrink-0 border-destructive/40" onClick={() => setRetryKey((k) => k + 1)}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Tentar novamente
+          </Button>
+        </div>
       )}
 
       {series && !chartError && (

@@ -19,6 +19,8 @@ Sem estas variáveis no painel da Vercel (**Settings → Environment Variables**
 
 Copie os valores do `.env` local (nunca commite o `.env`). Senha na URL: codificar `@` como `%40`, usar `?sslmode=require` no final se necessário.
 
+O `lib/db.ts` acrescenta automaticamente `connection_limit`, `pool_timeout` e `connect_timeout` na `DATABASE_URL` do Prisma (não precisa duplicar na Vercel). Dashboard usa **`/api/reports/dashboard`** (uma chamada) para reduzir carga no pool.
+
 ## Depois de alterar env
 
 Fazer **Redeploy** (Deployments → ⋮ → Redeploy) para as funções serverless enxergarem as novas variáveis.
