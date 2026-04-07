@@ -29,6 +29,14 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
+async function parseJsonSafe(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export default function ProdutosPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -51,8 +59,22 @@ export default function ProdutosPage() {
     if (search) params.set("search", search);
     if (collectionId !== "all") params.set("collectionId", collectionId);
     fetch(`/api/skus?${params}`)
-      .then((r) => r.json())
-      .then(setProducts);
+      .then(async (r) => {
+        const data = await parseJsonSafe(r);
+        if (!r.ok) {
+          toast.error(typeof data?.error === "string" ? data.error : "Falha ao carregar produtos.");
+          return;
+        }
+        if (Array.isArray(data)) {
+          setProducts(data);
+          return;
+        }
+        setProducts([]);
+      })
+      .catch(() => {
+        toast.error("Falha de rede ao carregar produtos.");
+        setProducts([]);
+      });
   }, [search, collectionId]);
 
   useEffect(() => {
@@ -60,7 +82,23 @@ export default function ProdutosPage() {
   }, [loadProducts]);
 
   useEffect(() => {
-    fetch("/api/collections").then((r) => r.json()).then(setCollections);
+    fetch("/api/collections")
+      .then(async (r) => {
+        const data = await parseJsonSafe(r);
+        if (!r.ok) {
+          toast.error(typeof data?.error === "string" ? data.error : "Falha ao carregar coleções.");
+          return;
+        }
+        if (Array.isArray(data)) {
+          setCollections(data);
+          return;
+        }
+        setCollections([]);
+      })
+      .catch(() => {
+        toast.error("Falha de rede ao carregar coleções.");
+        setCollections([]);
+      });
   }, []);
 
   function openCreate() {
@@ -150,8 +188,12 @@ export default function ProdutosPage() {
       }
       loadProducts();
       fetch("/api/collections")
-        .then((r) => r.json())
-        .then(setCollections);
+        .then(async (r) => {
+          const data = await parseJsonSafe(r);
+          if (r.ok && Array.isArray(data)) {
+            setCollections(data);
+          }
+        });
     } finally {
       setImporting(false);
       e.target.value = "";
