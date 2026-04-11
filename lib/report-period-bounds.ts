@@ -1,12 +1,20 @@
 import { getIsoWeekAndYear, isoWeekRange, previousIsoWeek } from "@/lib/iso-week";
 
-export type ReportPeriodOpts = { month?: number; year?: number; week?: number };
+export type ReportPeriodOpts = {
+  month?: number;
+  year?: number;
+  week?: number;
+  quarter?: number;
+  semester?: number;
+};
 
 /** Limites do período atual vs anterior (comparativo) + rótulos do gráfico para o período atual. */
 export function getReportDateContext(period: string, opts: ReportPeriodOpts) {
   const now = new Date();
   const m = opts.month ?? now.getMonth() + 1;
   const y = opts.year ?? now.getFullYear();
+  const q = opts.quarter ?? Math.floor((m - 1) / 3) + 1;
+  const s = opts.semester ?? (m <= 6 ? 1 : 2);
 
   let startCurrent: Date;
   let endCurrent: Date;
@@ -50,6 +58,20 @@ export function getReportDateContext(period: string, opts: ReportPeriodOpts) {
     endCurrent = new Date(y, 11, 31, 23, 59, 59);
     startPrevious = new Date(y - 1, 0, 1);
     endPrevious = new Date(y - 1, 11, 31, 23, 59, 59);
+  } else if (period === "quarterly") {
+    const quarter = Math.min(Math.max(q, 1), 4);
+    const startMonth = (quarter - 1) * 3;
+    startCurrent = new Date(y, startMonth, 1);
+    endCurrent = new Date(y, startMonth + 3, 0, 23, 59, 59);
+    startPrevious = new Date(y, startMonth - 3, 1);
+    endPrevious = new Date(y, startMonth, 0, 23, 59, 59);
+  } else if (period === "semiannual") {
+    const semester = Math.min(Math.max(s, 1), 2);
+    const startMonth = (semester - 1) * 6;
+    startCurrent = new Date(y, startMonth, 1);
+    endCurrent = new Date(y, startMonth + 6, 0, 23, 59, 59);
+    startPrevious = new Date(y, startMonth - 6, 1);
+    endPrevious = new Date(y, startMonth, 0, 23, 59, 59);
   } else {
     startCurrent = new Date(y, m - 1, 1);
     endCurrent = new Date(y, m, 0, 23, 59, 59);
@@ -77,6 +99,13 @@ function buildChartLabels(period: string, start: Date, end: Date, now: Date): st
   }
   if (period === "annual") {
     return ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  }
+  if (period === "quarterly" || period === "semiannual") {
+    const monthCount = period === "quarterly" ? 3 : 6;
+    return Array.from({ length: monthCount }, (_, i) => {
+      const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+      return d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+    });
   }
   const daysInMonth = end.getDate();
   return Array.from({ length: daysInMonth }, (_, i) => String(i + 1));

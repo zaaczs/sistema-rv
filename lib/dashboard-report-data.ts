@@ -16,13 +16,17 @@ export async function getDashboardReportPayload(input: {
   month?: number;
   year?: number;
   week?: number;
+  quarter?: number;
+  semester?: number;
   tipo: string;
 }) {
-  const { period, month, year, week, tipo } = input;
+  const { period, month, year, week, quarter, semester, tipo } = input;
   const { startCurrent, endCurrent, startPrevious, endPrevious, labels } = getReportDateContext(period, {
     month,
     year,
     week,
+    quarter,
+    semester,
   });
   const whereTipo = tipo !== "all" ? { tipo } : {};
 
@@ -112,10 +116,11 @@ export async function getDashboardReportPayload(input: {
         realProfit: total.netProfit - insumos,
       });
     }
-  } else if (period === "annual") {
-    for (let mi = 0; mi < 12; mi++) {
-      const monthStart = new Date(start.getFullYear(), mi, 1);
-      const monthEnd = new Date(start.getFullYear(), mi + 1, 0, 23, 59, 59);
+  } else if (period === "annual" || period === "quarterly" || period === "semiannual") {
+    const monthCount = period === "annual" ? 12 : period === "quarterly" ? 3 : 6;
+    for (let mi = 0; mi < monthCount; mi++) {
+      const monthStart = new Date(start.getFullYear(), start.getMonth() + mi, 1);
+      const monthEnd = new Date(start.getFullYear(), start.getMonth() + mi + 1, 0, 23, 59, 59);
       const monthSales = sales.filter((s) => s.data >= monthStart && s.data <= monthEnd);
       const total = monthSales.reduce(
         (acc, s) => ({
@@ -184,7 +189,7 @@ export async function getDashboardReportPayload(input: {
       unitsDiff,
       unitsDiffAbs: unitsCurrent - unitsPrevious,
     },
-    filters: { period, month, year, week, tipo },
+    filters: { period, month, year, week, quarter, semester, tipo },
     chart: { data, period },
   };
 }

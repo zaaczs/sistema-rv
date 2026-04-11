@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
       name: p.name,
       collectionId: p.collectionId,
       collectionName: p.collection.name,
+      tecido: p.tecido,
       custoUnitario: Number(p.custoUnitario),
       lucroVarejo: Number(p.lucroVarejo),
       lucroAtacado: Number(p.lucroAtacado),
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
     let body: {
       name: string;
       collectionId: string;
+      tecido: string;
       custoUnitario: number;
       lucroVarejo: number;
       lucroAtacado: number;
@@ -72,10 +74,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
     }
 
-    const { name, collectionId, custoUnitario, lucroVarejo, lucroAtacado } = body;
+    const { name, collectionId, tecido, custoUnitario, lucroVarejo, lucroAtacado } = body;
 
-    if (!name?.trim() || !collectionId) {
-      return NextResponse.json({ error: "Preencha nome e coleção." }, { status: 400 });
+    if (!name?.trim() || !collectionId || !tecido?.trim()) {
+      return NextResponse.json({ error: "Preencha nome, coleção e tecido." }, { status: 400 });
     }
 
     if ([custoUnitario, lucroVarejo, lucroAtacado].some((v) => v == null || v < 0)) {
@@ -90,6 +92,7 @@ export async function POST(req: NextRequest) {
         data: {
           name: name.trim(),
           collectionId,
+          tecido: tecido.trim().toUpperCase(),
           custoUnitario: new Decimal(custoUnitario),
           lucroVarejo: new Decimal(lucroVarejo),
           lucroAtacado: new Decimal(lucroAtacado),
@@ -105,6 +108,7 @@ export async function POST(req: NextRequest) {
       name: product.name,
       collectionId: product.collectionId,
       collectionName: product.collection.name,
+      tecido: product.tecido,
       custoUnitario: Number(product.custoUnitario),
       lucroVarejo: Number(product.lucroVarejo),
       lucroAtacado: Number(product.lucroAtacado),

@@ -16,6 +16,7 @@ type ProductRow = {
   name: string;
   collectionId: string;
   collectionName: string;
+  tecido: string;
   custoUnitario: number;
   lucroVarejo: number;
   lucroAtacado: number;
@@ -24,6 +25,7 @@ type ProductRow = {
 };
 
 type Collection = { id: string; name: string };
+const TECIDOS = ["WONDER", "NAGOYA", "NEW TRIP"] as const;
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -46,12 +48,15 @@ export default function ProdutosPage() {
   const [collectionId, setCollectionId] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProductRow | null>(null);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [creatingCollection, setCreatingCollection] = useState(false);
   const [form, setForm] = useState({
     name: "",
     collectionId: "",
+    tecido: TECIDOS[0],
     custoUnitario: "",
-    lucroVarejo: "",
-    lucroAtacado: "",
+    precoVarejo: "",
+    precoAtacado: "",
   });
 
   const loadProducts = useCallback(() => {
@@ -81,7 +86,7 @@ export default function ProdutosPage() {
     loadProducts();
   }, [loadProducts]);
 
-  useEffect(() => {
+  const loadCollections = useCallback(() => {
     fetch("/api/collections")
       .then(async (r) => {
         const data = await parseJsonSafe(r);
@@ -101,15 +106,21 @@ export default function ProdutosPage() {
       });
   }, []);
 
+  useEffect(() => {
+    loadCollections();
+  }, [loadCollections]);
+
   function openCreate() {
     setEditing(null);
     setForm({
       name: "",
       collectionId: collections[0]?.id ?? "",
+      tecido: TECIDOS[0],
       custoUnitario: "",
-      lucroVarejo: "",
-      lucroAtacado: "",
+      precoVarejo: "",
+      precoAtacado: "",
     });
+    setNewCollectionName("");
     setOpen(true);
   }
 
@@ -118,26 +129,31 @@ export default function ProdutosPage() {
     setForm({
       name: row.name,
       collectionId: row.collectionId,
+      tecido: row.tecido || TECIDOS[0],
       custoUnitario: String(row.custoUnitario),
-      lucroVarejo: String(row.lucroVarejo),
-      lucroAtacado: String(row.lucroAtacado),
+      precoVarejo: String(row.precoVarejo),
+      precoAtacado: String(row.precoAtacado),
     });
+    setNewCollectionName("");
     setOpen(true);
   }
 
   async function save() {
     const custoUnitario = parseFloat(form.custoUnitario) || 0;
-    const lucroVarejo = parseFloat(form.lucroVarejo) || 0;
-    const lucroAtacado = parseFloat(form.lucroAtacado) || 0;
+    const precoVarejo = parseFloat(form.precoVarejo) || 0;
+    const precoAtacado = parseFloat(form.precoAtacado) || 0;
+    const lucroVarejo = precoVarejo - custoUnitario;
+    const lucroAtacado = precoAtacado - custoUnitario;
 
-    if (!form.name.trim() || !form.collectionId) {
-      toast.error("Preencha nome e coleção.");
+    if (!form.name.trim() || !form.collectionId || !form.tecido) {
+      toast.error("Preencha nome, coleção e tecido.");
       return;
     }
 
     const payload = {
       name: form.name.trim(),
       collectionId: form.collectionId,
+      tecido: form.tecido,
       custoUnitario,
       lucroVarejo,
       lucroAtacado,
@@ -158,6 +174,42 @@ export default function ProdutosPage() {
     toast.success(editing ? "Produto atualizado" : "Produto criado");
     setOpen(false);
     loadProducts();
+  }
+
+  async function addCollection() {
+    const name = newCollectionName.trim();
+    if (!name) {
+      toast.error("Digite o nome da coleção.");
+      return;
+    }
+
+    setCreatingCollection(true);
+    try {
+      const res = await fetch("/api/collections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok) {
+        toast.error(typeof data?.error === "string" ? data.error : "Erro ao criar coleção.");
+        return;
+      }
+
+      if (data?.id && data?.name) {
+        setCollections((prev) => {
+          const merged = prev.some((c) => c.id === data.id) ? prev : [...prev, { id: data.id, name: data.name }];
+          return merged.sort((a, b) => a.name.localeCompare(b.name));
+        });
+        setForm((f) => ({ ...f, collectionId: data.id }));
+      } else {
+        loadCollections();
+      }
+      setNewCollectionName("");
+      toast.success("Coleção adicionada.");
+    } finally {
+      setCreatingCollection(false);
+    }
   }
 
   async function onImportCsv(e: React.ChangeEvent<HTMLInputElement>) {
@@ -201,15 +253,17 @@ export default function ProdutosPage() {
   }
 
   const custo = parseFloat(form.custoUnitario) || 0;
-  const lucroVarejo = parseFloat(form.lucroVarejo) || 0;
-  const lucroAtacado = parseFloat(form.lucroAtacado) || 0;
+  const precoVarejo = parseFloat(form.precoVarejo) || 0;
+  const precoAtacado = parseFloat(form.precoAtacado) || 0;
+  const lucroVarejo = precoVarejo - custo;
+  const lucroAtacado = precoAtacado - custo;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Produtos</h1>
-          <p className="text-muted-foreground">Controle por modelo com custo e lucro fixo.</p>
+          <p className="text-muted-foreground">Controle por modelo com custo e preços de venda.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input
@@ -263,6 +317,7 @@ export default function ProdutosPage() {
               <TableRow>
                 <TableHead>Modelo</TableHead>
                 <TableHead>Coleção</TableHead>
+                <TableHead>Tecido</TableHead>
                 <TableHead className="text-right">Custo</TableHead>
                 <TableHead className="text-right">Lucro varejo</TableHead>
                 <TableHead className="text-right">Lucro atacado</TableHead>
@@ -274,7 +329,7 @@ export default function ProdutosPage() {
             <TableBody>
               {products.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                     Nenhum produto encontrado.
                   </TableCell>
                 </TableRow>
@@ -283,6 +338,7 @@ export default function ProdutosPage() {
                   <TableRow key={row.id}>
                     <TableCell>{row.name}</TableCell>
                     <TableCell>{row.collectionName}</TableCell>
+                    <TableCell>{row.tecido}</TableCell>
                     <TableCell className="text-right">{formatMoney(row.custoUnitario)}</TableCell>
                     <TableCell className="text-right">{formatMoney(row.lucroVarejo)}</TableCell>
                     <TableCell className="text-right">{formatMoney(row.lucroAtacado)}</TableCell>
@@ -311,20 +367,54 @@ export default function ProdutosPage() {
               <Label>Nome do modelo</Label>
               <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
-            <div className="space-y-2">
-              <Label>Coleção</Label>
-              <Select value={form.collectionId} onValueChange={(value) => setForm((f) => ({ ...f, collectionId: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {collections.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Coleção</Label>
+                <Select value={form.collectionId} onValueChange={(value) => setForm((f) => ({ ...f, collectionId: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {collections.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Nova coleção"
+                    value={newCollectionName}
+                    onChange={(e) => setNewCollectionName(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="h-10 w-10"
+                    disabled={creatingCollection}
+                    onClick={addCollection}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Tecido</Label>
+                <Select value={form.tecido} onValueChange={(value) => setForm((f) => ({ ...f, tecido: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tecido" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TECIDOS.map((tecido) => (
+                      <SelectItem key={tecido} value={tecido}>
+                        {tecido}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -337,32 +427,32 @@ export default function ProdutosPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Lucro varejo (R$)</Label>
+                <Label>Preço varejo (R$)</Label>
                 <Input
                   type="number"
                   step="0.01"
-                  value={form.lucroVarejo}
-                  onChange={(e) => setForm((f) => ({ ...f, lucroVarejo: e.target.value }))}
+                  value={form.precoVarejo}
+                  onChange={(e) => setForm((f) => ({ ...f, precoVarejo: e.target.value }))}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Lucro atacado (R$)</Label>
+              <Label>Preço atacado (R$)</Label>
               <Input
                 type="number"
                 step="0.01"
-                value={form.lucroAtacado}
-                onChange={(e) => setForm((f) => ({ ...f, lucroAtacado: e.target.value }))}
+                value={form.precoAtacado}
+                onChange={(e) => setForm((f) => ({ ...f, precoAtacado: e.target.value }))}
               />
             </div>
             <div className="rounded-md border bg-muted/30 p-3 text-sm">
               <div className="flex justify-between">
-                <span>Preço varejo</span>
-                <span className="font-medium">{formatMoney(custo + lucroVarejo)}</span>
+                <span>Lucro varejo</span>
+                <span className="font-medium">{formatMoney(lucroVarejo)}</span>
               </div>
               <div className="mt-1 flex justify-between">
-                <span>Preço atacado</span>
-                <span className="font-medium">{formatMoney(custo + lucroAtacado)}</span>
+                <span>Lucro atacado</span>
+                <span className="font-medium">{formatMoney(lucroAtacado)}</span>
               </div>
             </div>
           </div>

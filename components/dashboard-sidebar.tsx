@@ -19,11 +19,13 @@ import {
   Upload,
   LogOut,
   Receipt,
+  Boxes,
 } from "lucide-react";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/produtos", label: "Produtos / SKUs", icon: Package },
+  { href: "/estoque", label: "Estoque", icon: Boxes },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/vendas", label: "Vendas", icon: ShoppingCart },
   { href: "/insumos", label: "Insumos", icon: Receipt },

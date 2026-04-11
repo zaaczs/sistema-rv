@@ -14,10 +14,12 @@ export async function GET(req: NextRequest) {
     const month = searchParams.get("month") ? parseInt(searchParams.get("month")!, 10) : undefined;
     const year = searchParams.get("year") ? parseInt(searchParams.get("year")!, 10) : undefined;
     const week = searchParams.get("week") ? parseInt(searchParams.get("week")!, 10) : undefined;
+    const quarter = searchParams.get("quarter") ? parseInt(searchParams.get("quarter")!, 10) : undefined;
+    const semester = searchParams.get("semester") ? parseInt(searchParams.get("semester")!, 10) : undefined;
     const tipo = searchParams.get("tipo") ?? "all";
 
     const payload = await withDbRetry(() =>
-      getDashboardReportPayload({ period, month, year, week, tipo }),
+      getDashboardReportPayload({ period, month, year, week, quarter, semester, tipo }),
     );
 
     return NextResponse.json(payload);

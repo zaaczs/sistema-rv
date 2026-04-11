@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { getIsoWeekAndYear, isoWeeksInYear } from "@/lib/iso-week";
 import { cn } from "@/lib/utils";
 
-type Period = "weekly" | "monthly" | "annual";
+type Period = "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
 
 type CompareData = {
   current: {
@@ -106,6 +106,8 @@ export function DashboardCharts() {
 
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
+  const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
+  const [semester, setSemester] = useState(now.getMonth() < 6 ? 1 : 2);
   const [isoYear, setIsoYear] = useState(initialIso.isoYear);
   const [isoWeek, setIsoWeek] = useState(initialIso.week);
 
@@ -122,6 +124,12 @@ export function DashboardCharts() {
     if (period === "monthly") {
       params.set("month", String(month));
       params.set("year", String(year));
+    } else if (period === "quarterly") {
+      params.set("year", String(year));
+      params.set("quarter", String(quarter));
+    } else if (period === "semiannual") {
+      params.set("year", String(year));
+      params.set("semester", String(semester));
     } else if (period === "annual") {
       params.set("year", String(year));
     } else {
@@ -129,7 +137,7 @@ export function DashboardCharts() {
       params.set("week", String(safeWeek));
     }
     return params;
-  }, [period, month, year, isoYear, safeWeek]);
+  }, [period, month, year, quarter, semester, isoYear, safeWeek]);
 
   useEffect(() => {
     let cancelled = false;
@@ -264,6 +272,24 @@ export function DashboardCharts() {
         units: "Quantidade vendida (ano)",
       };
     }
+    if (period === "quarterly") {
+      return {
+        revenue: "Faturamento do trimestre",
+        profit: "Lucro das vendas (trimestre)",
+        insumos: "Insumos do trimestre",
+        realProfit: "Lucro real do trimestre",
+        units: "Quantidade vendida (trimestre)",
+      };
+    }
+    if (period === "semiannual") {
+      return {
+        revenue: "Faturamento do semestre",
+        profit: "Lucro das vendas (semestre)",
+        insumos: "Insumos do semestre",
+        realProfit: "Lucro real do semestre",
+        units: "Quantidade vendida (semestre)",
+      };
+    }
     return {
       revenue: "Faturamento do mês",
       profit: "Lucro das vendas (mês)",
@@ -276,6 +302,8 @@ export function DashboardCharts() {
   const chartDescription = useMemo(() => {
     if (period === "weekly") return "Por dia da semana selecionada (ISO).";
     if (period === "annual") return "Por mês do ano selecionado.";
+    if (period === "quarterly") return "Por mês do trimestre selecionado.";
+    if (period === "semiannual") return "Por mês do semestre selecionado.";
     return "Por dia do mês selecionado.";
   }, [period]);
 
@@ -291,6 +319,8 @@ export function DashboardCharts() {
             <SelectContent>
               <SelectItem value="weekly">Semanal</SelectItem>
               <SelectItem value="monthly">Mensal</SelectItem>
+              <SelectItem value="quarterly">Trimestral</SelectItem>
+              <SelectItem value="semiannual">Semestral</SelectItem>
               <SelectItem value="annual">Anual</SelectItem>
             </SelectContent>
           </Select>
@@ -347,6 +377,72 @@ export function DashboardCharts() {
               </SelectContent>
             </Select>
           </div>
+        )}
+
+        {period === "quarterly" && (
+          <>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Ano</Label>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger className="w-full min-w-0 sm:w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEAR_OPTIONS.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Trimestre</Label>
+              <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
+                <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1º trimestre</SelectItem>
+                  <SelectItem value="2">2º trimestre</SelectItem>
+                  <SelectItem value="3">3º trimestre</SelectItem>
+                  <SelectItem value="4">4º trimestre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+
+        {period === "semiannual" && (
+          <>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Ano</Label>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger className="w-full min-w-0 sm:w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEAR_OPTIONS.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Semestre</Label>
+              <Select value={String(semester)} onValueChange={(v) => setSemester(Number(v))}>
+                <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1º semestre</SelectItem>
+                  <SelectItem value="2">2º semestre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </>
         )}
 
         {period === "weekly" && (

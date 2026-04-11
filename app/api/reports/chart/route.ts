@@ -16,10 +16,12 @@ export async function GET(req: NextRequest) {
     const month = searchParams.get("month") ? parseInt(searchParams.get("month")!, 10) : undefined;
     const year = searchParams.get("year") ? parseInt(searchParams.get("year")!, 10) : undefined;
     const week = searchParams.get("week") ? parseInt(searchParams.get("week")!, 10) : undefined;
+    const quarter = searchParams.get("quarter") ? parseInt(searchParams.get("quarter")!, 10) : undefined;
+    const semester = searchParams.get("semester") ? parseInt(searchParams.get("semester")!, 10) : undefined;
     const tipo = searchParams.get("tipo") ?? "all";
 
     const result = await withDbRetry(async () => {
-      const { startCurrent, endCurrent, labels } = getReportDateContext(period, { month, year, week });
+      const { startCurrent, endCurrent, labels } = getReportDateContext(period, { month, year, week, quarter, semester });
       const whereTipo = tipo !== "all" ? { tipo } : {};
       const start = startCurrent;
       const end = endCurrent;
@@ -85,10 +87,11 @@ export async function GET(req: NextRequest) {
             realProfit: total.netProfit - insumos,
           });
         }
-      } else if (period === "annual") {
-        for (let mi = 0; mi < 12; mi++) {
-          const monthStart = new Date(start.getFullYear(), mi, 1);
-          const monthEnd = new Date(start.getFullYear(), mi + 1, 0, 23, 59, 59);
+      } else if (period === "annual" || period === "quarterly" || period === "semiannual") {
+        const monthCount = period === "annual" ? 12 : period === "quarterly" ? 3 : 6;
+        for (let mi = 0; mi < monthCount; mi++) {
+          const monthStart = new Date(start.getFullYear(), start.getMonth() + mi, 1);
+          const monthEnd = new Date(start.getFullYear(), start.getMonth() + mi + 1, 0, 23, 59, 59);
           const monthSales = sales.filter((s) => s.data >= monthStart && s.data <= monthEnd);
           const total = monthSales.reduce(
             (acc, s) => ({

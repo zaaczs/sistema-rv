@@ -15,6 +15,7 @@ export async function PUT(
   let body: {
     name?: string;
     collectionId?: string;
+    tecido?: string;
     custoUnitario?: number;
     lucroVarejo?: number;
     lucroAtacado?: number;
@@ -39,6 +40,7 @@ export async function PUT(
 
   if (body.name !== undefined) data.name = body.name.trim();
   if (body.collectionId !== undefined) data.collectionId = body.collectionId;
+  if (body.tecido !== undefined) data.tecido = body.tecido.trim().toUpperCase();
   if (body.custoUnitario !== undefined) data.custoUnitario = new Decimal(custo);
   if (body.lucroVarejo !== undefined) data.lucroVarejo = new Decimal(lucroVarejo);
   if (body.lucroAtacado !== undefined) data.lucroAtacado = new Decimal(lucroAtacado);
@@ -57,6 +59,7 @@ export async function PUT(
     name: updated.name,
     collectionId: updated.collectionId,
     collectionName: updated.collection.name,
+    tecido: updated.tecido,
     custoUnitario: Number(updated.custoUnitario),
     lucroVarejo: Number(updated.lucroVarejo),
     lucroAtacado: Number(updated.lucroAtacado),

@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
     const month = searchParams.get("month") ? parseInt(searchParams.get("month")!, 10) : undefined;
     const year = searchParams.get("year") ? parseInt(searchParams.get("year")!, 10) : undefined;
     const week = searchParams.get("week") ? parseInt(searchParams.get("week")!, 10) : undefined;
+    const quarter = searchParams.get("quarter") ? parseInt(searchParams.get("quarter")!, 10) : undefined;
+    const semester = searchParams.get("semester") ? parseInt(searchParams.get("semester")!, 10) : undefined;
     const tipo = searchParams.get("tipo") ?? "all";
 
     const body = await withDbRetry(async () => {
@@ -23,6 +25,8 @@ export async function GET(req: NextRequest) {
         month,
         year,
         week,
+        quarter,
+        semester,
       });
       const whereTipo = tipo !== "all" ? { tipo } : {};
 
@@ -83,7 +87,7 @@ export async function GET(req: NextRequest) {
           unitsDiff,
           unitsDiffAbs: unitsCurrent - unitsPrevious,
         },
-        filters: { period, month, year, week, tipo },
+        filters: { period, month, year, week, quarter, semester, tipo },
       };
     });
 

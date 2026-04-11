@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { withDbRetry } from "@/lib/db-retry";
 import { sumInsumosValor } from "@/lib/insumo-repository";
+import { getReportDateContext } from "@/lib/report-period-bounds";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,12 +12,21 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
+    const period = searchParams.get("period") ?? "monthly";
     const month = parseInt(searchParams.get("month") ?? String(new Date().getMonth() + 1), 10);
     const year = parseInt(searchParams.get("year") ?? String(new Date().getFullYear()), 10);
+    const week = searchParams.get("week") ? parseInt(searchParams.get("week")!, 10) : undefined;
+    const quarter = searchParams.get("quarter") ? parseInt(searchParams.get("quarter")!, 10) : undefined;
+    const semester = searchParams.get("semester") ? parseInt(searchParams.get("semester")!, 10) : undefined;
     const tipo = searchParams.get("tipo") ?? "all";
 
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0, 23, 59, 59);
+    const { startCurrent: start, endCurrent: end } = getReportDateContext(period, {
+      month,
+      year,
+      week,
+      quarter,
+      semester,
+    });
     const whereTipo = tipo !== "all" ? { tipo } : {};
 
     const payload = await withDbRetry(async () => {
@@ -68,8 +78,12 @@ export async function GET(req: NextRequest) {
         .slice(0, 10);
 
       return {
+        period,
         month,
         year,
+        week,
+        quarter,
+        semester,
         tipo,
         totals: {
           revenue: Number(totals._sum.receita ?? 0),

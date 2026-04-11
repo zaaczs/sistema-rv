@@ -39,6 +39,7 @@ model Product {
   category      Category?  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   collectionId  String
   collection    Collection @relation(fields: [collectionId], references: [id], onDelete: Restrict)
+  tecido        String     @default("NAGOYA")
   status        String     @default("ACTIVE")
   custoUnitario Decimal    @default(0)
   lucroVarejo   Decimal    @default(0)

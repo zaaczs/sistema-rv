@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, RefreshCw } from "lucide-react";
+import { getIsoWeekAndYear, isoWeeksInYear } from "@/lib/iso-week";
 
 type ProductReportRow = {
   productId: string;
@@ -15,8 +16,12 @@ type ProductReportRow = {
 };
 
 type MonthlyData = {
+  period: "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
   month: number;
   year: number;
+  week?: number;
+  quarter?: number;
+  semester?: number;
   tipo: string;
   totals: {
     revenue: number;
@@ -46,28 +51,55 @@ function formatMoney(v: number) {
 }
 
 export default function RelatoriosPage() {
+  const now = new Date();
+  const nowIso = getIsoWeekAndYear(now);
   const [data, setData] = useState<MonthlyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [period, setPeriod] = useState<"weekly" | "monthly" | "quarterly" | "semiannual" | "annual">("monthly");
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
+  const [semester, setSemester] = useState(now.getMonth() < 6 ? 1 : 2);
+  const [isoYear, setIsoYear] = useState(nowIso.isoYear);
+  const [isoWeek, setIsoWeek] = useState(nowIso.week);
   const [tipo, setTipo] = useState<"all" | "varejo" | "atacado">("all");
+  const [reloadKey, setReloadKey] = useState(0);
   const fetchGeneration = useRef(0);
+  const maxWeek = isoWeeksInYear(isoYear);
+  const safeWeek = Math.min(isoWeek, maxWeek);
 
-  const load = useCallback((): (() => void) => {
-    setLoading(true);
-    setError(null);
+  useEffect(() => {
+    let cancelled = false;
     const gen = ++fetchGeneration.current;
     const qs = new URLSearchParams({
-      month: String(month),
-      year: String(year),
+      period,
       tipo,
     });
+    if (period === "monthly") {
+      qs.set("month", String(month));
+      qs.set("year", String(year));
+    } else if (period === "quarterly") {
+      qs.set("year", String(year));
+      qs.set("quarter", String(quarter));
+    } else if (period === "semiannual") {
+      qs.set("year", String(year));
+      qs.set("semester", String(semester));
+    } else if (period === "annual") {
+      qs.set("year", String(year));
+    } else {
+      qs.set("year", String(isoYear));
+      qs.set("week", String(safeWeek));
+    }
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 60000);
-    fetch(`/api/reports/monthly?${qs}`, { signal: ac.signal })
-      .then(async (r) => {
+    async function loadData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const r = await fetch(`/api/reports/monthly?${qs}`, { signal: ac.signal });
         const j: unknown = await r.json().catch(() => ({}));
+
         if (!r.ok) {
           const msg =
             typeof j === "object" && j && "error" in j && typeof (j as { error: unknown }).error === "string"
@@ -78,42 +110,47 @@ export default function RelatoriosPage() {
         if (!isMonthlyPayload(j)) {
           throw new Error("Resposta inválida do servidor.");
         }
-        return j;
-      })
-      .then((j) => {
-        if (gen !== fetchGeneration.current) return;
+        if (cancelled || gen !== fetchGeneration.current) return;
         setData(j);
-      })
-      .catch((e: Error) => {
-        if (gen !== fetchGeneration.current) return;
-        if (e.name === "AbortError") {
+      } catch (e) {
+        if (cancelled || gen !== fetchGeneration.current) return;
+        const err = e as Error;
+        if (err.name === "AbortError") {
           setError("Tempo esgotado ao carregar. Verifique a conexão e tente de novo.");
         } else {
-          setError(e.message ?? "Falha ao carregar relatório.");
+          setError(err.message ?? "Falha ao carregar relatório.");
         }
         setData(null);
-      })
-      .finally(() => {
+      } finally {
         clearTimeout(t);
-        if (gen === fetchGeneration.current) setLoading(false);
-      });
+        if (!cancelled && gen === fetchGeneration.current) setLoading(false);
+      }
+    }
+    loadData();
+
     return () => {
+      cancelled = true;
       clearTimeout(t);
       ac.abort();
     };
-  }, [month, year, tipo]);
-
-  useEffect(() => {
-    const cleanup = load();
-    return typeof cleanup === "function" ? cleanup : undefined;
-  }, [load]);
+  }, [period, month, year, quarter, semester, isoYear, safeWeek, tipo, reloadKey]);
 
   function exportCsv() {
     if (!data) return;
+    const periodLabel =
+      period === "weekly"
+        ? `Semana ${safeWeek}/${isoYear}`
+        : period === "monthly"
+          ? `${month}/${year}`
+          : period === "quarterly"
+            ? `${quarter}º trimestre/${year}`
+            : period === "semiannual"
+              ? `${semester}º semestre/${year}`
+              : `Ano ${year}`;
     const rows = [
-      ["Relatório por produto", `${month}/${year}`, `Tipo: ${tipo}`],
+      ["Relatório por produto", periodLabel, `Tipo: ${tipo}`],
       [],
-      ["Resumo do mês"],
+      ["Resumo do período"],
       ["Faturamento", formatMoney(data.totals.revenue)],
       ["Lucro (vendas)", formatMoney(data.totals.netProfit)],
       ["Insumos", formatMoney(data.totals.totalInsumos ?? 0)],
@@ -127,7 +164,7 @@ export default function RelatoriosPage() {
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `relatorio-produtos-${year}-${String(month).padStart(2, "0")}.csv`;
+    a.download = `relatorio-produtos-${period}-${year}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -147,7 +184,7 @@ export default function RelatoriosPage() {
         <h1 className="text-xl font-bold md:text-2xl">Relatórios</h1>
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
           <p className="font-medium text-destructive">{error}</p>
-          <Button className="mt-3" variant="secondary" onClick={() => load()}>
+          <Button className="mt-3" variant="secondary" onClick={() => setReloadKey((k) => k + 1)}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Tentar novamente
           </Button>
@@ -168,18 +205,79 @@ export default function RelatoriosPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="flex flex-wrap gap-2">
             <select
-              className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-2 text-sm sm:flex-none"
-              value={month}
-              onChange={(e) => setMonth(Number(e.target.value))}
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>
-                  {new Date(2000, m - 1).toLocaleString("pt-BR", { month: "long" }).replace(/^\w/, (c) => c.toUpperCase())}
-                </option>
-              ))}
-            </select>
-            <select
               className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-2 text-sm sm:w-auto"
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as "weekly" | "monthly" | "quarterly" | "semiannual" | "annual")}
+            >
+              <option value="weekly">Semanal</option>
+              <option value="monthly">Mensal</option>
+              <option value="quarterly">Trimestral</option>
+              <option value="semiannual">Semestral</option>
+              <option value="annual">Anual</option>
+            </select>
+            {period === "monthly" && (
+              <select
+                className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-2 text-sm sm:flex-none"
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <option key={m} value={m}>
+                    {new Date(2000, m - 1).toLocaleString("pt-BR", { month: "long" }).replace(/^\w/, (c) => c.toUpperCase())}
+                  </option>
+                ))}
+              </select>
+            )}
+            {period === "weekly" && (
+              <>
+                <select
+                  className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-2 text-sm sm:w-auto"
+                  value={isoYear}
+                  onChange={(e) => setIsoYear(Number(e.target.value))}
+                >
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-2 text-sm sm:w-auto"
+                  value={safeWeek}
+                  onChange={(e) => setIsoWeek(Number(e.target.value))}
+                >
+                  {Array.from({ length: maxWeek }, (_, i) => i + 1).map((w) => (
+                    <option key={w} value={w}>
+                      Semana {w}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            {period === "quarterly" && (
+              <select
+                className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-2 text-sm sm:w-auto"
+                value={quarter}
+                onChange={(e) => setQuarter(Number(e.target.value))}
+              >
+                <option value={1}>1º trimestre</option>
+                <option value={2}>2º trimestre</option>
+                <option value={3}>3º trimestre</option>
+                <option value={4}>4º trimestre</option>
+              </select>
+            )}
+            {period === "semiannual" && (
+              <select
+                className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-2 text-sm sm:w-auto"
+                value={semester}
+                onChange={(e) => setSemester(Number(e.target.value))}
+              >
+                <option value={1}>1º semestre</option>
+                <option value={2}>2º semestre</option>
+              </select>
+            )}
+            <select
+              className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-2 text-sm sm:flex-none"
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
             >
@@ -200,7 +298,7 @@ export default function RelatoriosPage() {
             </select>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => load()} disabled={loading}>
+            <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setReloadKey((k) => k + 1)} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Atualizar
             </Button>
@@ -220,7 +318,7 @@ export default function RelatoriosPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base md:text-lg">Resumo do mês</CardTitle>
+          <CardTitle className="text-base md:text-lg">Resumo do período</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
