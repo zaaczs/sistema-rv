@@ -85,10 +85,21 @@ Sistema web MVP para loja de moda fitness: cadastro de produtos/SKUs, clientes, 
 - **Login** — 1 usuário admin
 - **Dashboard** — Faturamento, lucro líquido e unidades do mês + comparativo com mês anterior
 - **Produtos / SKUs** — Listagem com busca e filtros; criar/editar SKU (estoque, preços varejo/atacado)
+- **Estoque de Produtos** — Visão e controle de entradas/saídas por SKU, ajuste manual de quantidade e validação para não permitir estoque negativo
 - **Clientes** — CRUD e busca por nome/telefone
 - **Vendas** — Registrar venda: canal (varejo/atacado), cliente, pagamento, taxa de cartão (%), itens por SKU; validação de mínimo 5 peças no atacado e estoque; baixa automática de estoque
 - **Relatórios** — Mensal por canal, ranking (unidades e lucro), exportar CSV
 - **Importar** — CSV de produtos (layout padrão: skuCode, productName, category, collection, color, size, costPrice, retailPrice, wholesalePrice, stockQty, active)
+
+## Módulo de Estoque de Produtos
+
+O módulo de estoque permite acompanhar a disponibilidade dos SKUs e manter o saldo correto dos itens em tempo real:
+
+- Consulta de quantidade atual por SKU
+- Ajuste manual de estoque (correções de inventário)
+- Baixa automática a cada venda concluída
+- Bloqueio de venda quando não houver saldo suficiente
+- Atualização em lote via importação CSV de produtos
 
 ## Layout CSV (importação de produtos)
 
@@ -108,6 +119,7 @@ Colunas obrigatórias (separador `;` ou `,`):
 
 - Admin loga e acessa o sistema
 - Cadastro de SKU com estoque
+- Controle de estoque por SKU (consulta e ajuste)
 - Cadastro de cliente
 - Venda varejo registrada e estoque baixado
 - Venda atacado com &lt; 5 peças bloqueada
