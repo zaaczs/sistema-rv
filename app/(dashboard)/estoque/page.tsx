@@ -30,6 +30,15 @@ type ProductOption = {
 };
 
 const TECIDOS = ["WONDER", "NAGOYA", "NEW TRIP"] as const;
+type StockFormState = {
+  referencia: string;
+  modeloId: string;
+  tecido: string;
+  cor: string;
+  tamanho: string;
+  quantidade: string;
+  ativo: boolean;
+};
 
 async function parseJsonSafe(res: Response) {
   try {
@@ -46,7 +55,7 @@ export default function EstoquePage() {
   const [modelId, setModelId] = useState("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<StockRow | null>(null);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<StockFormState>({
     referencia: "",
     modeloId: "",
     tecido: TECIDOS[0],

@@ -26,6 +26,14 @@ type ProductRow = {
 
 type Collection = { id: string; name: string };
 const TECIDOS = ["WONDER", "NAGOYA", "NEW TRIP"] as const;
+type ProductFormState = {
+  name: string;
+  collectionId: string;
+  tecido: string;
+  custoUnitario: string;
+  precoVarejo: string;
+  precoAtacado: string;
+};
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -50,7 +58,7 @@ export default function ProdutosPage() {
   const [editing, setEditing] = useState<ProductRow | null>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [creatingCollection, setCreatingCollection] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ProductFormState>({
     name: "",
     collectionId: "",
     tecido: TECIDOS[0],
