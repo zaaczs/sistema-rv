@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, RefreshCw } from "lucide-react";
+import { Download, FileText, RefreshCw } from "lucide-react";
+import { exportReportPdf } from "@/lib/export-report-pdf";
 import { getIsoWeekAndYear, isoWeeksInYear } from "@/lib/iso-week";
+import { getReportPeriodLabel } from "@/lib/report-period-label";
 
 type ProductReportRow = {
   productId: string;
@@ -135,18 +137,13 @@ export default function RelatoriosPage() {
     };
   }, [period, month, year, quarter, semester, isoYear, safeWeek, tipo, reloadKey]);
 
+  function getPeriodLabel() {
+    return getReportPeriodLabel({ period, month, year, quarter, semester, isoYear, safeWeek });
+  }
+
   function exportCsv() {
     if (!data) return;
-    const periodLabel =
-      period === "weekly"
-        ? `Semana ${safeWeek}/${isoYear}`
-        : period === "monthly"
-          ? `${month}/${year}`
-          : period === "quarterly"
-            ? `${quarter}º trimestre/${year}`
-            : period === "semiannual"
-              ? `${semester}º semestre/${year}`
-              : `Ano ${year}`;
+    const periodLabel = getPeriodLabel();
     const rows = [
       ["Relatório por produto", periodLabel, `Tipo: ${tipo}`],
       [],
@@ -167,6 +164,20 @@ export default function RelatoriosPage() {
     a.download = `relatorio-produtos-${period}-${year}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
+  }
+
+  function exportPdf() {
+    if (!data) return;
+    exportReportPdf({
+      periodLabel: getPeriodLabel(),
+      tipo,
+      totals: data.totals,
+      byProduct: data.byProduct,
+      rankingUnits: data.rankingUnits,
+      rankingProfit: data.rankingProfit,
+      filename: `relatorio-produtos-${period}-${year}.pdf`,
+      formatMoney,
+    });
   }
 
   if (loading && !data) {
@@ -302,9 +313,13 @@ export default function RelatoriosPage() {
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Atualizar
             </Button>
-            <Button className="w-full sm:w-auto" onClick={exportCsv}>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={exportCsv}>
               <Download className="mr-2 h-4 w-4" />
               Exportar CSV
+            </Button>
+            <Button className="w-full sm:w-auto" onClick={exportPdf}>
+              <FileText className="mr-2 h-4 w-4" />
+              Exportar PDF
             </Button>
           </div>
         </div>
