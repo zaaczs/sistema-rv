@@ -9,7 +9,7 @@
     "dev": "next dev",
     "postinstall": "prisma generate",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
+    "start": "next start -H 0.0.0.0 -p $PORT",
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
