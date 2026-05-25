@@ -58,6 +58,7 @@ model Customer {
   phone        String?
   customerType String   @default("RETAIL")
   notes        String?
+  deletedAt    DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   sales        Sale[]
@@ -91,6 +92,7 @@ model Sale {
   totalCost             Decimal    @default(0)
   grossProfit           Decimal    @default(0)
   netProfit             Decimal    @default(0)
+  deletedAt             DateTime?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   items                 SaleItem[]
@@ -136,5 +138,19 @@ model Insumo {
   valor     Decimal
   data      DateTime
   categoria String?
+  deletedAt DateTime?
   createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  entity     String
+  entityId   String
+  action     String
+  actorId    String?
+  actorEmail String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId, createdAt])
 }

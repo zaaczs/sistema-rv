@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Decimal } from "@prisma/client/runtime/library";
 import { computeSaleTotals } from "@/lib/compute-sale";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function PUT(
   req: NextRequest,
@@ -46,43 +47,75 @@ export async function PUT(
     return NextResponse.json({ error: "Taxa de cartão não pode ser negativa." }, { status: 400 });
   }
 
-  const existing = await prisma.sale.findUnique({ where: { id } });
-  if (!existing) {
-    return NextResponse.json({ error: "Venda não encontrada." }, { status: 404 });
+  let sale: {
+    id: string;
+    data: Date;
+    tipo: string;
+    productId: string | null;
+    quantidade: number;
+    precoUnitarioAplicado: Decimal;
+    lucroUnitario: Decimal;
+    taxaCartao: Decimal;
+    receita: Decimal;
+    lucroBruto: Decimal;
+    lucroLiquido: Decimal;
+    product: { name: string } | null;
+  };
+  try {
+    sale = await prisma.$transaction(async (tx) => {
+      const existing = await tx.sale.findFirst({ where: { id, deletedAt: null } });
+      if (!existing) throw new Error("SALE_NOT_FOUND");
+
+      const product = await tx.product.findUnique({ where: { id: produtoId } });
+      if (!product) throw new Error("PRODUCT_NOT_FOUND");
+
+      const { lucroBase, precoAplicado, receita, lucroBruto, lucroLiquido } = computeSaleTotals(
+        product,
+        tipo,
+        quantidade,
+        precoUnitarioAplicado,
+        taxaCartao
+      );
+
+      if (precoAplicado < 0) throw new Error("INVALID_PRICE");
+
+      return tx.sale.update({
+        where: { id },
+        data: {
+          data: new Date(data),
+          tipo,
+          productId: produtoId,
+          quantidade,
+          precoUnitarioAplicado: new Decimal(precoAplicado),
+          lucroUnitario: new Decimal(lucroBase),
+          taxaCartao: new Decimal(taxaCartao),
+          receita: new Decimal(receita),
+          lucroBruto: new Decimal(lucroBruto),
+          lucroLiquido: new Decimal(lucroLiquido),
+        },
+        include: { product: true },
+      });
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "SALE_NOT_FOUND") {
+      return NextResponse.json({ error: "Venda não encontrada." }, { status: 404 });
+    }
+    if (error instanceof Error && error.message === "PRODUCT_NOT_FOUND") {
+      return NextResponse.json({ error: "Produto não encontrado." }, { status: 404 });
+    }
+    if (error instanceof Error && error.message === "INVALID_PRICE") {
+      return NextResponse.json({ error: "Preço aplicado não pode ser negativo." }, { status: 400 });
+    }
+    console.error("PUT /api/sales/[id]:", error);
+    return NextResponse.json({ error: "Não foi possível atualizar a venda." }, { status: 500 });
   }
 
-  const product = await prisma.product.findUnique({ where: { id: produtoId } });
-  if (!product) {
-    return NextResponse.json({ error: "Produto não encontrado." }, { status: 404 });
-  }
-
-  const { lucroBase, precoAplicado, receita, lucroBruto, lucroLiquido } = computeSaleTotals(
-    product,
-    tipo,
-    quantidade,
-    precoUnitarioAplicado,
-    taxaCartao
-  );
-
-  if (precoAplicado < 0) {
-    return NextResponse.json({ error: "Preço aplicado não pode ser negativo." }, { status: 400 });
-  }
-
-  const sale = await prisma.sale.update({
-    where: { id },
-    data: {
-      data: new Date(data),
-      tipo,
-      productId: produtoId,
-      quantidade,
-      precoUnitarioAplicado: new Decimal(precoAplicado),
-      lucroUnitario: new Decimal(lucroBase),
-      taxaCartao: new Decimal(taxaCartao),
-      receita: new Decimal(receita),
-      lucroBruto: new Decimal(lucroBruto),
-      lucroLiquido: new Decimal(lucroLiquido),
-    },
-    include: { product: true },
+  await writeAuditLog({
+    entity: "Sale",
+    entityId: sale.id,
+    action: "UPDATE",
+    session,
+    metadata: { tipo, produtoId, quantidade },
   });
 
   return NextResponse.json({
@@ -110,12 +143,22 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const existing = await prisma.sale.findUnique({ where: { id } });
+  const existing = await prisma.sale.findFirst({ where: { id, deletedAt: null } });
   if (!existing) {
     return NextResponse.json({ error: "Venda não encontrada." }, { status: 404 });
   }
 
-  await prisma.sale.delete({ where: { id } });
+  await prisma.sale.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+
+  await writeAuditLog({
+    entity: "Sale",
+    entityId: id,
+    action: "DELETE",
+    session,
+  });
 
   return NextResponse.json({ ok: true });
 }

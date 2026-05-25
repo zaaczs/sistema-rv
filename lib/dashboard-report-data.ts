@@ -31,11 +31,11 @@ export async function getDashboardReportPayload(input: {
   const whereTipo = tipo !== "all" ? { tipo } : {};
 
   const current = await prisma.sale.aggregate({
-    where: { data: { gte: startCurrent, lte: endCurrent }, ...whereTipo },
+    where: { data: { gte: startCurrent, lte: endCurrent }, deletedAt: null, ...whereTipo },
     _sum: { receita: true, lucroLiquido: true, quantidade: true },
   });
   const previous = await prisma.sale.aggregate({
-    where: { data: { gte: startPrevious, lte: endPrevious }, ...whereTipo },
+    where: { data: { gte: startPrevious, lte: endPrevious }, deletedAt: null, ...whereTipo },
     _sum: { receita: true, lucroLiquido: true, quantidade: true },
   });
   const totalInsumosCurrent = await sumInsumosValor({ gte: startCurrent, lte: endCurrent });
@@ -61,7 +61,7 @@ export async function getDashboardReportPayload(input: {
   const unitsDiff = unitsPrevious ? ((unitsCurrent - unitsPrevious) / unitsPrevious) * 100 : 0;
 
   const sales = await prisma.sale.findMany({
-    where: { data: { gte: startCurrent, lte: endCurrent }, ...whereTipo },
+    where: { data: { gte: startCurrent, lte: endCurrent }, deletedAt: null, ...whereTipo },
   });
   const insumosEntities = await listInsumos({ gte: startCurrent, lte: endCurrent });
   const insumosRows = insumosEntities.map((e) => ({ data: e.data, valor: e.valor }));

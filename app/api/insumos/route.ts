@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createInsumo, listInsumos } from "@/lib/insumo-repository";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -69,6 +70,14 @@ export async function POST(req: NextRequest) {
       valor: Number(valor),
       data: dataRef,
       categoria: categoria?.trim() ? categoria.trim() : null,
+    });
+
+    await writeAuditLog({
+      entity: "Insumo",
+      entityId: created.id,
+      action: "CREATE",
+      session,
+      metadata: { categoria: created.categoria },
     });
 
     return NextResponse.json({

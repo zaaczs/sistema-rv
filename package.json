@@ -2,17 +2,25 @@
   "name": "sistema-rv",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "npx tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:backup": "node scripts/backup-db.mjs",
+    "db:restore": "node scripts/restore-db.mjs",
+    "db:backup:verify": "node scripts/verify-backup.mjs",
+    "db:backup:docker": "node scripts/migrate-backup-docker.mjs",
+    "db:restore:docker": "node scripts/migrate-restore-docker.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

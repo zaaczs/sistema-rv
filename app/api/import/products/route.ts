@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { Decimal } from "@prisma/client/runtime/library";
 import { parseProductRowsFromCsv } from "@/lib/import-products-csv";
 import { withDbRetry } from "@/lib/db-retry";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,19 +50,6 @@ export async function POST(req: NextRequest) {
 
     const collectionCache = new Map<string, string>();
 
-    async function collectionIdFor(name: string): Promise<string> {
-      const key = name.trim();
-      if (!key) throw new Error("Coleção vazia");
-      const hit = collectionCache.get(key);
-      if (hit) return hit;
-      let col = await withDbRetry(() => prisma.collection.findUnique({ where: { name: key } }));
-      if (!col) {
-        col = await withDbRetry(() => prisma.collection.create({ data: { name: key } }));
-      }
-      collectionCache.set(key, col.id);
-      return col.id;
-    }
-
     let created = 0;
     let updated = 0;
     const rowLog: { line: number; name: string; action: "created" | "updated" }[] = [];
@@ -75,33 +63,35 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const collectionId = await collectionIdFor(collectionName);
+      const action = await withDbRetry(() =>
+        prisma.$transaction(async (tx) => {
+          const key = collectionName.trim();
+          if (!key) throw new Error("Coleção vazia");
+          let collectionId = collectionCache.get(key);
+          if (!collectionId) {
+            let col = await tx.collection.findUnique({ where: { name: key } });
+            if (!col) col = await tx.collection.create({ data: { name: key } });
+            collectionId = col.id;
+            collectionCache.set(key, collectionId);
+          }
 
-      const existing = await withDbRetry(() =>
-        prisma.product.findFirst({
-          where: { name },
-        }),
-      );
+          const existing = await tx.product.findFirst({ where: { name } });
+          if (existing) {
+            await tx.product.update({
+              where: { id: existing.id },
+              data: {
+                collectionId,
+                custoUnitario: new Decimal(custoUnitario),
+                lucroVarejo: new Decimal(lucroVarejo),
+                lucroAtacado: new Decimal(lucroAtacado),
+                precoVarejo: new Decimal(precoVarejo),
+                precoAtacado: new Decimal(precoAtacado),
+              },
+            });
+            return "updated" as const;
+          }
 
-      if (existing) {
-        await withDbRetry(() =>
-          prisma.product.update({
-            where: { id: existing.id },
-            data: {
-              collectionId,
-              custoUnitario: new Decimal(custoUnitario),
-              lucroVarejo: new Decimal(lucroVarejo),
-              lucroAtacado: new Decimal(lucroAtacado),
-              precoVarejo: new Decimal(precoVarejo),
-              precoAtacado: new Decimal(precoAtacado),
-            },
-          }),
-        );
-        updated++;
-        rowLog.push({ line: lineNumber, name, action: "updated" });
-      } else {
-        await withDbRetry(() =>
-          prisma.product.create({
+          await tx.product.create({
             data: {
               name,
               collectionId,
@@ -111,14 +101,25 @@ export async function POST(req: NextRequest) {
               precoVarejo: new Decimal(precoVarejo),
               precoAtacado: new Decimal(precoAtacado),
             },
-          }),
-        );
-        created++;
-        rowLog.push({ line: lineNumber, name, action: "created" });
-      }
+          });
+          return "created" as const;
+        }),
+      );
+
+      if (action === "created") created++;
+      if (action === "updated") updated++;
+      rowLog.push({ line: lineNumber, name, action });
     }
 
     const skipped = parsed.parseErrors.length;
+
+    await writeAuditLog({
+      entity: "ProductImport",
+      entityId: "csv",
+      action: "IMPORT",
+      session,
+      metadata: { created, updated, skipped },
+    });
 
     return NextResponse.json({
       created,

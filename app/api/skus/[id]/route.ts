@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Decimal } from "@prisma/client/runtime/library";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function PUT(
   req: NextRequest,
@@ -52,6 +53,14 @@ export async function PUT(
     where: { id },
     data: data as never,
     include: { collection: true },
+  });
+
+  await writeAuditLog({
+    entity: "Product",
+    entityId: id,
+    action: "UPDATE",
+    session,
+    metadata: { changedFields: Object.keys(data) },
   });
 
   return NextResponse.json({

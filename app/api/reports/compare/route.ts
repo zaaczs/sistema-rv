@@ -31,11 +31,11 @@ export async function GET(req: NextRequest) {
       const whereTipo = tipo !== "all" ? { tipo } : {};
 
       const current = await prisma.sale.aggregate({
-        where: { data: { gte: startCurrent, lte: endCurrent }, ...whereTipo },
+        where: { data: { gte: startCurrent, lte: endCurrent }, deletedAt: null, ...whereTipo },
         _sum: { receita: true, lucroLiquido: true, quantidade: true },
       });
       const previous = await prisma.sale.aggregate({
-        where: { data: { gte: startPrevious, lte: endPrevious }, ...whereTipo },
+        where: { data: { gte: startPrevious, lte: endPrevious }, deletedAt: null, ...whereTipo },
         _sum: { receita: true, lucroLiquido: true, quantidade: true },
       });
       const totalInsumosCurrent = await sumInsumosValor({ gte: startCurrent, lte: endCurrent });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function PUT(
   req: NextRequest,
@@ -18,7 +19,7 @@ export async function PUT(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const customer = await prisma.customer.findUnique({ where: { id } });
+  const customer = await prisma.customer.findFirst({ where: { id, deletedAt: null } });
   if (!customer) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
 
   const data: Record<string, unknown> = {};
@@ -31,5 +32,40 @@ export async function PUT(
     where: { id },
     data: data as never,
   });
+
+  await writeAuditLog({
+    entity: "Customer",
+    entityId: id,
+    action: "UPDATE",
+    session,
+    metadata: { changedFields: Object.keys(data) },
+  });
+
   return NextResponse.json(updated);
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  const { id } = await params;
+  const existing = await prisma.customer.findFirst({ where: { id, deletedAt: null } });
+  if (!existing) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+
+  await prisma.customer.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+
+  await writeAuditLog({
+    entity: "Customer",
+    entityId: id,
+    action: "DELETE",
+    session,
+  });
+
+  return NextResponse.json({ ok: true });
 }

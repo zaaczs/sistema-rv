@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Decimal } from "@prisma/client/runtime/library";
 import { computeSaleTotals } from "@/lib/compute-sale";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
   if (tipo && tipo !== "all") where.tipo = tipo;
 
   const sales = await prisma.sale.findMany({
-    where,
+    where: { ...where, deletedAt: null },
     include: {
       product: true,
     },
@@ -90,36 +91,54 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Taxa de cartão não pode ser negativa." }, { status: 400 });
   }
 
-  const product = await prisma.product.findUnique({ where: { id: produtoId } });
-  if (!product) {
-    return NextResponse.json({ error: "Produto não encontrado." }, { status: 404 });
+  let sale: { id: string; receita: Decimal; lucroLiquido: Decimal };
+  try {
+    sale = await prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({ where: { id: produtoId } });
+      if (!product) throw new Error("PRODUCT_NOT_FOUND");
+
+      const { lucroBase, precoAplicado, receita, lucroBruto, lucroLiquido } = computeSaleTotals(
+        product,
+        tipo,
+        quantidade,
+        precoUnitarioAplicado,
+        taxaCartao
+      );
+
+      if (precoAplicado < 0) throw new Error("INVALID_PRICE");
+
+      return tx.sale.create({
+        data: {
+          data: new Date(data),
+          tipo,
+          productId: produtoId,
+          quantidade,
+          precoUnitarioAplicado: new Decimal(precoAplicado),
+          lucroUnitario: new Decimal(lucroBase),
+          taxaCartao: new Decimal(taxaCartao),
+          receita: new Decimal(receita),
+          lucroBruto: new Decimal(lucroBruto),
+          lucroLiquido: new Decimal(lucroLiquido),
+        },
+      });
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "PRODUCT_NOT_FOUND") {
+      return NextResponse.json({ error: "Produto não encontrado." }, { status: 404 });
+    }
+    if (error instanceof Error && error.message === "INVALID_PRICE") {
+      return NextResponse.json({ error: "Preço aplicado não pode ser negativo." }, { status: 400 });
+    }
+    console.error("POST /api/sales:", error);
+    return NextResponse.json({ error: "Não foi possível salvar a venda." }, { status: 500 });
   }
 
-  const { lucroBase, precoAplicado, receita, lucroBruto, lucroLiquido } = computeSaleTotals(
-    product,
-    tipo,
-    quantidade,
-    precoUnitarioAplicado,
-    taxaCartao
-  );
-
-  if (precoAplicado < 0) {
-    return NextResponse.json({ error: "Preço aplicado não pode ser negativo." }, { status: 400 });
-  }
-
-  const sale = await prisma.sale.create({
-    data: {
-      data: new Date(data),
-      tipo,
-      productId: produtoId,
-      quantidade,
-      precoUnitarioAplicado: new Decimal(precoAplicado),
-      lucroUnitario: new Decimal(lucroBase),
-      taxaCartao: new Decimal(taxaCartao),
-      receita: new Decimal(receita),
-      lucroBruto: new Decimal(lucroBruto),
-      lucroLiquido: new Decimal(lucroLiquido),
-    },
+  await writeAuditLog({
+    entity: "Sale",
+    entityId: sale.id,
+    action: "CREATE",
+    session,
+    metadata: { tipo, produtoId, quantidade },
   });
 
   return NextResponse.json({

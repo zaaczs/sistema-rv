@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Decimal } from "@prisma/client/runtime/library";
 import { withDbRetry } from "@/lib/db-retry";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   try {
@@ -102,6 +103,14 @@ export async function POST(req: NextRequest) {
         include: { collection: true },
       }),
     );
+
+    await writeAuditLog({
+      entity: "Product",
+      entityId: product.id,
+      action: "CREATE",
+      session,
+      metadata: { collectionId, tecido: product.tecido },
+    });
 
     return NextResponse.json({
       id: product.id,

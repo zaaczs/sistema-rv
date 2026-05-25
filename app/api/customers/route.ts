@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") ?? "";
 
-  const where = search
+  const searchWhere = search
     ? {
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
@@ -20,7 +21,10 @@ export async function GET(req: NextRequest) {
     : {};
 
   const list = await prisma.customer.findMany({
-    where,
+    where: {
+      deletedAt: null,
+      ...searchWhere,
+    },
     orderBy: { name: "asc" },
   });
   return NextResponse.json(list);
@@ -48,5 +52,14 @@ export async function POST(req: NextRequest) {
       notes: notes?.trim() ?? null,
     },
   });
+
+  await writeAuditLog({
+    entity: "Customer",
+    entityId: customer.id,
+    action: "CREATE",
+    session,
+    metadata: { customerType: customer.customerType },
+  });
+
   return NextResponse.json(customer);
 }

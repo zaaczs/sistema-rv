@@ -31,19 +31,19 @@ export async function GET(req: NextRequest) {
 
     const payload = await withDbRetry(async () => {
       const totals = await prisma.sale.aggregate({
-        where: { data: { gte: start, lte: end }, ...whereTipo },
+        where: { data: { gte: start, lte: end }, deletedAt: null, ...whereTipo },
         _sum: { receita: true, lucroBruto: true, lucroLiquido: true, taxaCartao: true, quantidade: true },
         _count: true,
       });
       const byTipo = await prisma.sale.groupBy({
         by: ["tipo"],
-        where: { data: { gte: start, lte: end } },
+        where: { data: { gte: start, lte: end }, deletedAt: null },
         _sum: { receita: true, lucroLiquido: true, quantidade: true },
         _count: true,
       });
       const groupedByProduct = await prisma.sale.groupBy({
         by: ["productId"],
-        where: { data: { gte: start, lte: end }, ...whereTipo },
+        where: { data: { gte: start, lte: end }, deletedAt: null, ...whereTipo },
         _sum: { quantidade: true, receita: true, lucroLiquido: true },
       });
       const totalInsumos = await sumInsumosValor({ gte: start, lte: end });

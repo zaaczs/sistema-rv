@@ -79,6 +79,9 @@ Sistema web MVP para loja de moda fitness: cadastro de produtos/SKUs, clientes, 
 | `npm run db:migrate`  | Cria e aplica migrations |
 | `npm run db:seed`     | Popula admin, categorias e coleção |
 | `npm run db:studio`   | Abre Prisma Studio      |
+| `npm run db:backup`   | Gera backup `.sql` em `backups/` com retenção |
+| `npm run db:restore -- backups/arquivo.sql` | Restaura backup em `RESTORE_DATABASE_URL` |
+| `npm run db:backup:verify` | Executa backup + restore de validação |
 
 ## Funcionalidades (MVP)
 
@@ -127,6 +130,52 @@ Colunas obrigatórias (separador `;` ou `,`):
 - Dashboard com faturamento, lucro líquido, unidades e comparativo
 - Importação de produtos via CSV com validação
 - Export CSV do relatório mensal
+
+---
+
+## Segurança e proteção de dados
+
+Camadas já aplicadas no sistema:
+
+- Autenticação obrigatória com NextAuth em páginas privadas e APIs
+- Sessão JWT com renovação periódica e secret obrigatório em produção
+- Proteção contra tentativa de força bruta no login (bloqueio por tentativas seguidas)
+- Headers HTTP de segurança no proxy (`X-Frame-Options`, `HSTS`, `nosniff`, `Referrer-Policy`, etc.)
+- Prisma com retry para falhas transitórias de conexão
+- Soft delete para vendas, clientes e insumos (evita remoção física imediata)
+- Log de auditoria para ações críticas (criação, edição, exclusão e importação)
+- Transações Prisma em operações sensíveis de venda, estoque e importação
+
+Boas práticas para não perder dados cadastrados:
+
+1. Habilitar backup automático e Point-In-Time Recovery no provedor do PostgreSQL (Supabase/Neon/RDS).
+2. Executar backup manual recorrente com:
+   ```bash
+   npm run db:backup
+   ```
+3. Configurar variáveis opcionais de backup:
+   - `BACKUP_RETENTION_DAYS` (padrão 14)
+   - `BACKUP_MIRROR_DIR` (espelho local/rede)
+   - `RESTORE_DATABASE_URL` (banco dedicado para teste de restore)
+4. Validar restauração periodicamente em ambiente de homologação:
+   ```bash
+   npm run db:backup:verify
+   ```
+5. Guardar backups em armazenamento externo (S3/Drive) com retenção (ex.: diário 15 dias + semanal 8 semanas).
+6. Nunca executar comandos destrutivos em produção sem backup válido do dia.
+
+### Rotina agendada de backup
+
+O repositório inclui workflow em `.github/workflows/db-backup.yml`:
+
+- Executa diariamente (cron) e também manualmente (`workflow_dispatch`)
+- Roda `npm run db:backup`
+- Salva artefato do backup no GitHub Actions
+
+Para funcionar, configure o secret `DATABASE_URL` no GitHub do projeto.
+
+> Importante: nenhum sistema garante risco zero sem rotina de backup + teste de restauração.  
+> O projeto agora está mais protegido na aplicação, mas a garantia de continuidade depende também da política de backup do banco.
 
 ---
 

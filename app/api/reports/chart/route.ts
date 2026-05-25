@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       const end = endCurrent;
 
       const sales = await prisma.sale.findMany({
-        where: { data: { gte: start, lte: end }, ...whereTipo },
+        where: { data: { gte: start, lte: end }, deletedAt: null, ...whereTipo },
       });
       const insumosEntities = await listInsumos({ gte: start, lte: end });
       const insumosRows = insumosEntities.map((e) => ({ data: e.data, valor: e.valor }));

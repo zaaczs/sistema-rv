@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { deleteInsumo, findInsumoById, updateInsumo } from "@/lib/insumo-repository";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function PATCH(
   req: NextRequest,
@@ -54,6 +55,14 @@ export async function PATCH(
     const updated = await updateInsumo(id, patch);
     if (!updated) return NextResponse.json({ error: "Insumo não encontrado." }, { status: 404 });
 
+    await writeAuditLog({
+      entity: "Insumo",
+      entityId: id,
+      action: "UPDATE",
+      session,
+      metadata: { changedFields: Object.keys(patch) },
+    });
+
     return NextResponse.json({
       id: updated.id,
       nome: updated.nome,
@@ -78,6 +87,13 @@ export async function DELETE(
   const { id } = await params;
   const ok = await deleteInsumo(id);
   if (!ok) return NextResponse.json({ error: "Insumo não encontrado." }, { status: 404 });
+
+  await writeAuditLog({
+    entity: "Insumo",
+    entityId: id,
+    action: "DELETE",
+    session,
+  });
 
   return NextResponse.json({ ok: true });
 }

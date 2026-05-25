@@ -43,7 +43,7 @@ export async function listInsumos(range?: { gte: Date; lte: Date }): Promise<Ins
       >`
         SELECT id, nome, valor, data, categoria, "createdAt"
         FROM "Insumo"
-        WHERE data >= ${range.gte} AND data <= ${range.lte}
+        WHERE data >= ${range.gte} AND data <= ${range.lte} AND "deletedAt" IS NULL
         ORDER BY data DESC, "createdAt" DESC
       `
     : await prisma.$queryRaw<
@@ -58,6 +58,7 @@ export async function listInsumos(range?: { gte: Date; lte: Date }): Promise<Ins
       >`
         SELECT id, nome, valor, data, categoria, "createdAt"
         FROM "Insumo"
+        WHERE "deletedAt" IS NULL
         ORDER BY data DESC, "createdAt" DESC
       `;
   return rows.map(rowToEntity);
@@ -67,7 +68,7 @@ export async function sumInsumosValor(range: { gte: Date; lte: Date }): Promise<
   const [row] = await prisma.$queryRaw<{ s: unknown }[]>`
     SELECT COALESCE(SUM(valor), 0) AS s
     FROM "Insumo"
-    WHERE data >= ${range.gte} AND data <= ${range.lte}
+    WHERE data >= ${range.gte} AND data <= ${range.lte} AND "deletedAt" IS NULL
   `;
   const v = row?.s;
   if (typeof v === "bigint") return Number(v);
@@ -88,7 +89,7 @@ export async function findInsumoById(id: string): Promise<InsumoEntity | null> {
   >`
     SELECT id, nome, valor, data, categoria, "createdAt"
     FROM "Insumo"
-    WHERE id = ${id}
+    WHERE id = ${id} AND "deletedAt" IS NULL
     LIMIT 1
   `;
   const r = rows[0];
@@ -125,7 +126,7 @@ export async function updateInsumo(
 
   await prisma.$executeRaw`
     UPDATE "Insumo" SET ${Prisma.join(parts, ", ")}
-    WHERE id = ${id}
+    WHERE id = ${id} AND "deletedAt" IS NULL
   `;
   return findInsumoById(id);
 }
@@ -133,6 +134,6 @@ export async function updateInsumo(
 export async function deleteInsumo(id: string): Promise<boolean> {
   const existing = await findInsumoById(id);
   if (!existing) return false;
-  await prisma.$executeRaw`DELETE FROM "Insumo" WHERE id = ${id}`;
+  await prisma.$executeRaw`UPDATE "Insumo" SET "deletedAt" = NOW() WHERE id = ${id}`;
   return true;
 }

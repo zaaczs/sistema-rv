@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Decimal } from "@prisma/client/runtime/library";
 import { withDbRetry } from "@/lib/db-retry";
+import { writeAuditLog } from "@/lib/audit-log";
 
 type CreateStockBody = {
   referencia: string;
@@ -93,28 +94,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Quantidade inválida." }, { status: 400 });
     }
 
-    const product = await withDbRetry(() => prisma.product.findUnique({ where: { id: modeloId } }));
-    if (!product) {
-      return NextResponse.json({ error: "Modelo não encontrado." }, { status: 404 });
-    }
     const tecidoNormalized = tecido.toUpperCase();
-
     const created = await withDbRetry(() =>
-      prisma.sku.create({
-        data: {
-          skuCode: referencia.toUpperCase(),
-          productId: modeloId,
-          color: cor.toUpperCase(),
-          size: tamanho.toUpperCase(),
-          stockQty: Math.floor(quantidade),
-          active: true,
-          costPrice: new Decimal(product.custoUnitario),
-          retailPrice: new Decimal(product.precoVarejo),
-          wholesalePrice: new Decimal(product.precoAtacado),
-        },
-        include: { product: true },
+      prisma.$transaction(async (tx) => {
+        const product = await tx.product.findUnique({ where: { id: modeloId } });
+        if (!product) throw new Error("MODEL_NOT_FOUND");
+
+        return tx.sku.create({
+          data: {
+            skuCode: referencia.toUpperCase(),
+            productId: modeloId,
+            color: cor.toUpperCase(),
+            size: tamanho.toUpperCase(),
+            stockQty: Math.floor(quantidade),
+            active: true,
+            costPrice: new Decimal(product.custoUnitario),
+            retailPrice: new Decimal(product.precoVarejo),
+            wholesalePrice: new Decimal(product.precoAtacado),
+          },
+          include: { product: true },
+        });
       }),
     );
+
+    await writeAuditLog({
+      entity: "Sku",
+      entityId: created.id,
+      action: "CREATE",
+      session,
+      metadata: { referencia: created.skuCode, modeloId: created.productId },
+    });
 
     return NextResponse.json({
       id: created.id,
@@ -128,6 +137,9 @@ export async function POST(req: NextRequest) {
       ativo: created.active,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "MODEL_NOT_FOUND") {
+      return NextResponse.json({ error: "Modelo não encontrado." }, { status: 404 });
+    }
     console.error("POST /api/estoque:", error);
     if (error instanceof Error && error.message.includes("Unique constraint")) {
       return NextResponse.json({ error: "A referência já existe." }, { status: 409 });

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # prisma local sqlite
 /prisma/dev.db
+
+# backups locais de banco
+/backups
