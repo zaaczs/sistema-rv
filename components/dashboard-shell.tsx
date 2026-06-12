@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { BrandLogo } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -22,12 +23,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
-        <div className="flex min-w-0 items-center gap-2 font-semibold">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-            RV
-          </span>
-          <span className="truncate">Reville Fitness</span>
-        </div>
+        <BrandLogo className="min-w-0 flex-1" />
       </header>
 
       {mobileOpen && (

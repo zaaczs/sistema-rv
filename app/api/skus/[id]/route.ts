@@ -76,3 +76,57 @@ export async function PUT(
     precoAtacado: Number(updated.precoAtacado),
   });
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  const { id } = await params;
+
+  const product = await prisma.product.findUnique({ where: { id } });
+  if (!product) return NextResponse.json({ error: "Produto não encontrado" }, { status: 404 });
+
+  const salesCount = await prisma.sale.count({
+    where: { productId: id, deletedAt: null },
+  });
+  if (salesCount > 0) {
+    return NextResponse.json(
+      { error: "Este produto possui vendas registradas e não pode ser excluído." },
+      { status: 409 }
+    );
+  }
+
+  const skuIds = await prisma.sku.findMany({
+    where: { productId: id },
+    select: { id: true },
+  });
+  if (skuIds.length > 0) {
+    const saleItemsCount = await prisma.saleItem.count({
+      where: { skuId: { in: skuIds.map((s) => s.id) } },
+    });
+    if (saleItemsCount > 0) {
+      return NextResponse.json(
+        { error: "Este produto possui itens em vendas e não pode ser excluído." },
+        { status: 409 }
+      );
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.sku.deleteMany({ where: { productId: id } }),
+    prisma.product.delete({ where: { id } }),
+  ]);
+
+  await writeAuditLog({
+    entity: "Product",
+    entityId: id,
+    action: "DELETE",
+    session,
+    metadata: { name: product.name },
+  });
+
+  return NextResponse.json({ ok: true });
+}

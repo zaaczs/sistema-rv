@@ -20,7 +20,9 @@
     "db:restore": "node scripts/restore-db.mjs",
     "db:backup:verify": "node scripts/verify-backup.mjs",
     "db:backup:docker": "node scripts/migrate-backup-docker.mjs",
-    "db:restore:docker": "node scripts/migrate-restore-docker.mjs"
+    "db:restore:docker": "node scripts/migrate-restore-docker.mjs",
+    "db:compare": "node scripts/compare-databases.mjs",
+    "db:migrate:heroku": "powershell -ExecutionPolicy Bypass -File scripts/migrate-supabase-to-heroku-native.ps1"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

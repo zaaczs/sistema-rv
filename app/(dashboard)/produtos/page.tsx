@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Plus, Search, Upload } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 type ProductRow = {
@@ -58,6 +58,7 @@ export default function ProdutosPage() {
   const [editing, setEditing] = useState<ProductRow | null>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [creatingCollection, setCreatingCollection] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductFormState>({
     name: "",
     collectionId: "",
@@ -182,6 +183,30 @@ export default function ProdutosPage() {
     toast.success(editing ? "Produto atualizado" : "Produto criado");
     setOpen(false);
     loadProducts();
+  }
+
+  async function apagarProduto(row: ProductRow) {
+    if (
+      !confirm(
+        `Excluir o produto "${row.name}" permanentemente? Esta ação não pode ser desfeita.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(row.id);
+    try {
+      const res = await fetch(`/api/skus/${row.id}`, { method: "DELETE" });
+      const data = await parseJsonSafe(res);
+      if (!res.ok) {
+        toast.error(typeof data?.error === "string" ? data.error : "Erro ao excluir produto");
+        return;
+      }
+      toast.success("Produto excluído.");
+      loadProducts();
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function addCollection() {
@@ -331,7 +356,7 @@ export default function ProdutosPage() {
                 <TableHead className="text-right">Lucro atacado</TableHead>
                 <TableHead className="text-right">Preço varejo</TableHead>
                 <TableHead className="text-right">Preço atacado</TableHead>
-                <TableHead className="w-[80px]"></TableHead>
+                <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -353,9 +378,21 @@ export default function ProdutosPage() {
                     <TableCell className="text-right">{formatMoney(row.precoVarejo)}</TableCell>
                     <TableCell className="text-right">{formatMoney(row.precoAtacado)}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(row)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(row)} aria-label="Editar produto">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={deletingId === row.id}
+                          onClick={() => apagarProduto(row)}
+                          aria-label="Excluir produto"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

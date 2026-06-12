@@ -33,6 +33,7 @@ type SaleRow = {
   receita: number;
   lucroBruto: number;
   lucroLiquido: number;
+  observacao: string | null;
 };
 
 function formatMoney(value: number) {
@@ -66,6 +67,7 @@ export default function VendasPage() {
   const [quantidade, setQuantidade] = useState("1");
   const [precoUnitario, setPrecoUnitario] = useState("0");
   const [taxaCartao, setTaxaCartao] = useState("0");
+  const [observacao, setObservacao] = useState("");
   const [loading, setLoading] = useState(false);
   const [listLoading, setListLoading] = useState(true);
 
@@ -78,6 +80,7 @@ export default function VendasPage() {
     quantidade: "1",
     precoUnitario: "0",
     taxaCartao: "0",
+    observacao: "",
   });
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -154,6 +157,7 @@ export default function VendasPage() {
           quantidade: qtd,
           precoUnitarioAplicado: preco,
           taxaCartao: taxa,
+          observacao: observacao.trim() || null,
         }),
       });
 
@@ -166,6 +170,7 @@ export default function VendasPage() {
       toast.success("Venda registrada com sucesso.");
       setQuantidade("1");
       setTaxaCartao("0");
+      setObservacao("");
       loadSales();
     } finally {
       setLoading(false);
@@ -183,6 +188,7 @@ export default function VendasPage() {
       quantidade: String(row.quantidade),
       precoUnitario: formatDecimalForInput(row.precoUnitarioAplicado),
       taxaCartao: formatDecimalForInput(row.taxaCartao),
+      observacao: row.observacao ?? "",
     });
     setEditOpen(true);
   }
@@ -223,6 +229,7 @@ export default function VendasPage() {
           quantidade: editQtd,
           precoUnitarioAplicado: editPreco,
           taxaCartao: editTaxa,
+          observacao: editForm.observacao.trim() || null,
         }),
       });
 
@@ -335,6 +342,17 @@ export default function VendasPage() {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label>Observação (opcional)</Label>
+            <textarea
+              className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex min-h-[80px] w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+              placeholder="Ex.: cliente especial, desconto aplicado, forma de pagamento..."
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              rows={3}
+            />
+          </div>
+
           <Card>
             <CardHeader>
               <CardTitle>Resumo em tempo real</CardTitle>
@@ -389,6 +407,7 @@ export default function VendasPage() {
                   <TableHead className="text-right">Qtd</TableHead>
                   <TableHead className="text-right">Receita</TableHead>
                   <TableHead className="text-right">Lucro líq.</TableHead>
+                  <TableHead>Obs.</TableHead>
                   <TableHead className="w-[60px]" />
                 </TableRow>
               </TableHeader>
@@ -401,6 +420,9 @@ export default function VendasPage() {
                     <TableCell className="text-right">{row.quantidade}</TableCell>
                     <TableCell className="text-right">{formatMoney(row.receita)}</TableCell>
                     <TableCell className="text-right">{formatMoney(row.lucroLiquido)}</TableCell>
+                    <TableCell className="max-w-[180px] truncate text-muted-foreground" title={row.observacao ?? undefined}>
+                      {row.observacao || "—"}
+                    </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" type="button" onClick={() => openEdit(row)} aria-label="Editar venda">
                         <Pencil className="h-4 w-4" />
@@ -492,6 +514,16 @@ export default function VendasPage() {
                   onChange={(e) => setEditForm((f) => ({ ...f, taxaCartao: e.target.value }))}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Observação (opcional)</Label>
+              <textarea
+                className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 flex min-h-[80px] w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                placeholder="Ex.: cliente especial, desconto aplicado..."
+                value={editForm.observacao}
+                onChange={(e) => setEditForm((f) => ({ ...f, observacao: e.target.value }))}
+                rows={3}
+              />
             </div>
             <div className="rounded-md border bg-muted/30 p-3 text-sm">
               <div className="flex justify-between">

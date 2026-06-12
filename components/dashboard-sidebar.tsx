@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 
 type DashboardSidebarProps = {
   className?: string;
@@ -38,11 +39,8 @@ export function DashboardSidebar({ className, onNavigate }: DashboardSidebarProp
 
   return (
     <aside className={cn("flex w-56 shrink-0 flex-col bg-card md:border-r", className)}>
-      <div className="hidden p-4 font-semibold md:flex md:items-center md:gap-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-          RV
-        </span>
-        Reville Fitness
+      <div className="p-4">
+        <BrandLogo />
       </div>
       <nav className="flex-1 space-y-1 p-2">
         {nav.map((item) => {

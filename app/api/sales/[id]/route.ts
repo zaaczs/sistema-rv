@@ -22,6 +22,7 @@ export async function PUT(
     quantidade: number;
     precoUnitarioAplicado?: number;
     taxaCartao?: number;
+    observacao?: string | null;
   };
 
   try {
@@ -30,7 +31,8 @@ export async function PUT(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { data, tipo, produtoId, quantidade, precoUnitarioAplicado, taxaCartao = 0 } = body;
+  const { data, tipo, produtoId, quantidade, precoUnitarioAplicado, taxaCartao = 0, observacao } = body;
+  const notes = observacao !== undefined ? (observacao?.trim() || null) : undefined;
 
   if (!data || !tipo || !produtoId || quantidade == null) {
     return NextResponse.json({ error: "Preencha data, tipo, produto e quantidade." }, { status: 400 });
@@ -59,6 +61,7 @@ export async function PUT(
     receita: Decimal;
     lucroBruto: Decimal;
     lucroLiquido: Decimal;
+    notes: string | null;
     product: { name: string } | null;
   };
   try {
@@ -92,6 +95,7 @@ export async function PUT(
           receita: new Decimal(receita),
           lucroBruto: new Decimal(lucroBruto),
           lucroLiquido: new Decimal(lucroLiquido),
+          ...(notes !== undefined ? { notes } : {}),
         },
         include: { product: true },
       });
@@ -131,6 +135,7 @@ export async function PUT(
     receita: Number(sale.receita),
     lucroBruto: Number(sale.lucroBruto),
     lucroLiquido: Number(sale.lucroLiquido),
+    observacao: sale.notes ?? null,
   });
 }
 

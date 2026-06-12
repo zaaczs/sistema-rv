@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BrandLogo } from "@/components/brand-logo";
 
 function LoginForm() {
   const router = useRouter();
@@ -45,9 +46,8 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <span className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-lg font-bold">RV</span>
-            Reville Fitness
+          <CardTitle>
+            <BrandLogo iconClassName="h-10 w-10" textClassName="text-lg" />
           </CardTitle>
           <CardDescription>Moda Fitness — Varejo e Atacado</CardDescription>
         </CardHeader>
@@ -94,9 +94,8 @@ function LoginFallback() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <span className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-lg font-bold">RV</span>
-            Reville Fitness
+          <CardTitle>
+            <BrandLogo iconClassName="h-10 w-10" textClassName="text-lg" />
           </CardTitle>
           <CardDescription>Carregando…</CardDescription>
         </CardHeader>

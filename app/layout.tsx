@@ -17,6 +17,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Reville Fitness — Sistema RV",
   description: "Moda Fitness — Varejo e Atacado — Controle de vendas e estoque",
+  icons: {
+    icon: "/logorv.jpg",
+    apple: "/logorv.jpg",
+  },
 };
 
 export const viewport = {

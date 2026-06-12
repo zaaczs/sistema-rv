@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
     receita: Number(s.receita),
     lucroBruto: Number(s.lucroBruto),
     lucroLiquido: Number(s.lucroLiquido),
+    observacao: s.notes ?? null,
   }));
 
   return NextResponse.json(list);
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
     quantidade: number;
     precoUnitarioAplicado?: number;
     taxaCartao?: number;
+    observacao?: string | null;
   };
 
   try {
@@ -74,7 +76,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { data, tipo, produtoId, quantidade, precoUnitarioAplicado, taxaCartao = 0 } = body;
+  const { data, tipo, produtoId, quantidade, precoUnitarioAplicado, taxaCartao = 0, observacao } = body;
+  const notes = observacao?.trim() || null;
 
   if (!data || !tipo || !produtoId || !quantidade) {
     return NextResponse.json({ error: "Preencha data, tipo, produto e quantidade." }, { status: 400 });
@@ -119,6 +122,7 @@ export async function POST(req: NextRequest) {
           receita: new Decimal(receita),
           lucroBruto: new Decimal(lucroBruto),
           lucroLiquido: new Decimal(lucroLiquido),
+          notes,
         },
       });
     });
