@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   title: "Reville Fitness — Sistema RV",
   description: "Moda Fitness — Varejo e Atacado — Controle de vendas e estoque",
   icons: {
-    icon: "/logorv.jpg",
-    apple: "/logorv.jpg",
+    icon: [{ url: "/icon.jpg", type: "image/jpeg" }],
+    apple: [{ url: "/icon.jpg", type: "image/jpeg" }],
   },
 };
 
