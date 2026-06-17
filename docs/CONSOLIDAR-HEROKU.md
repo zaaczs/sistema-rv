@@ -1,62 +1,45 @@
-# Consolidar tudo no Heroku (desligar Vercel e Supabase)
+# Produção somente no Heroku
 
-## Situação resolvida
+## URL oficial
 
-Os dados estavam em **dois bancos**:
+**https://revillefitness-a7c65b026db0.herokuapp.com/**
 
-| Ambiente | URL do app | Banco |
-|----------|------------|-------|
-| Vercel (ativo pela cliente) | `sistema-rv.vercel.app` | Supabase |
-| Heroku (produção desejada) | `revillefitness-a7c65b026db0.herokuapp.com` | Heroku Postgres |
-
-O Heroku tinha um snapshot antigo (até abril/2026). O Supabase tinha **maio/2026** (18 vendas a mais).
-
-Em **02/06/2026** foi feito restore do backup atual do Supabase para o Heroku Postgres. Contagens conferidas: **144 vendas**, incluindo **18 em maio/2026**.
-
-Backup salvo em: `backups/backup_supabase_2026-06-02T12-25-04.dump`
-
-## O que a cliente deve usar daqui pra frente
-
-**Somente:** https://revillefitness-a7c65b026db0.herokuapp.com/
-
-Não cadastrar mais nada em `sistema-rv.vercel.app` até desligar a Vercel.
-
-## Validar antes de desligar Vercel/Supabase
-
-1. Login no Heroku
-2. Dashboard → **Maio / 2026** → deve mostrar faturamento ~R$ 2.027,60 e 24 unidades (conforme Vercel)
-3. **Vendas** → listar vendas de 11/05, 13/05, 15/05, 20/05/2026
-4. **Relatórios** → mesmo período
-
-## Desligar Vercel (quando validado)
-
-1. [vercel.com](https://vercel.com) → projeto `sistema-rv`
-2. **Settings** → **Delete Project** (ou remover domínio e pausar deploys)
-3. Opcional: remover integração Git se não for mais usar
-
-## Desligar Supabase (quando validado)
-
-1. [supabase.com](https://supabase.com) → projeto `rhtenjmfxpxxztnaejvp`
-2. Fazer **um último backup** manual (já existe cópia local em `backups/`)
-3. **Settings** → **Pause project** ou **Delete project**
-4. Não apagar antes de confirmar o Heroku por alguns dias
-
-## Repetir migração (se necessário)
-
-Com PostgreSQL 17 instalado e `.env` com `DIRECT_URL` do Supabase:
+Commits no GitHub **não** fazem deploy automático no Heroku. Deploy manual:
 
 ```powershell
-.\scripts\migrate-supabase-to-heroku-native.ps1
+heroku login
+# use a conta zaccgamer123@gmail.com (dona do app revillefitness)
+npm run deploy:heroku
 ```
 
-## Backup automático no Heroku
+Ou: `git push heroku main`
 
-- Heroku Postgres **Continuous Protection** já está ativo
-- Atualize o secret `DATABASE_URL` no GitHub Actions (`.github/workflows/db-backup.yml`) para a URL do **Heroku**, não do Supabase
+## Por que o commit foi para a Vercel?
 
-## Variáveis no Heroku (já configuradas)
+O repositório `zaaczs/sistema-rv` estava ligado à integração Vercel no GitHub. Cada `git push origin main` disparava deploy na Vercel.
 
-- `DATABASE_URL` / `DIRECT_URL` → Heroku Postgres
-- `NEXTAUTH_URL` → `https://revillefitness-a7c65b026db0.herokuapp.com/`
+**Projetos Vercel removidos:** `sistema-rv` e `sistema-rv-d5yb`.
 
-Não apontar mais o app para Supabase.
+### Evitar deploy na Vercel de novo
+
+1. GitHub → [sistema-rv Settings → Integrations](https://github.com/zaaczs/sistema-rv/settings/installations)
+2. Se ainda existir **Vercel**, clique em **Configure** → remova o repositório `sistema-rv` ou desinstale o app
+
+## Supabase
+
+O banco do Supabase **não** é mais usado. Os dados já foram migrados para o Heroku Postgres.
+
+Para apagar o projeto Supabase:
+
+1. [supabase.com/dashboard](https://supabase.com/dashboard) → projeto do Sistema RV
+2. **Project Settings** → **General** → **Delete project**
+3. Backup local disponível em `backups/backup_supabase_2026-06-02T12-25-04.dump`
+
+## Backup automático
+
+Atualize o secret `DATABASE_URL` no GitHub Actions para a URL do **Heroku Postgres** (não Supabase).
+
+## Conta Heroku
+
+O app `revillefitness` pertence a **zaccgamer123@gmail.com**.  
+Se `git push heroku` retornar **403**, faça `heroku logout` e login nessa conta.

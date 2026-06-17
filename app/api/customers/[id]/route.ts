@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit-log";
+import { normalizePhone, validatePhone } from "@/lib/phone";
 
 export async function PUT(
   req: NextRequest,
@@ -24,7 +25,11 @@ export async function PUT(
 
   const data: Record<string, unknown> = {};
   if (body.name !== undefined) data.name = body.name.trim();
-  if (body.phone !== undefined) data.phone = body.phone?.trim() ?? null;
+  if (body.phone !== undefined) {
+    const phoneError = validatePhone(body.phone);
+    if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 });
+    data.phone = normalizePhone(body.phone);
+  }
   if (body.customerType !== undefined) data.customerType = body.customerType;
   if (body.notes !== undefined) data.notes = body.notes?.trim() ?? null;
 

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit-log";
+import { normalizePhone, validatePhone } from "@/lib/phone";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -44,10 +45,13 @@ export async function POST(req: NextRequest) {
   const { name, phone, customerType = "RETAIL", notes } = body;
   if (!name?.trim()) return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
 
+  const phoneError = validatePhone(phone);
+  if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 });
+
   const customer = await prisma.customer.create({
     data: {
       name: name.trim(),
-      phone: phone?.trim() ?? null,
+      phone: normalizePhone(phone),
       customerType: (customerType as "RETAIL" | "WHOLESALE" | "MIXED") || "RETAIL",
       notes: notes?.trim() ?? null,
     },

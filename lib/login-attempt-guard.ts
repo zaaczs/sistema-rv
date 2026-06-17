@@ -48,7 +48,7 @@ export function registerLoginFailure(identifier: string): { blockedUntil: number
     blockedUntil = current + BASE_BLOCK_MS * multiplier;
   }
 
-  attempts.set(key, {
+  attempts.set(key, { 
     count: nextCount,
     blockedUntil,
     lastAttemptAt: current,

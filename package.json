@@ -22,7 +22,8 @@
     "db:backup:docker": "node scripts/migrate-backup-docker.mjs",
     "db:restore:docker": "node scripts/migrate-restore-docker.mjs",
     "db:compare": "node scripts/compare-databases.mjs",
-    "db:migrate:heroku": "powershell -ExecutionPolicy Bypass -File scripts/migrate-supabase-to-heroku-native.ps1"
+    "db:migrate:heroku": "powershell -ExecutionPolicy Bypass -File scripts/migrate-supabase-to-heroku-native.ps1",
+    "deploy:heroku": "powershell -ExecutionPolicy Bypass -File scripts/deploy-heroku.ps1"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

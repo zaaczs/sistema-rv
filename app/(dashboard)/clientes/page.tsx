@@ -27,8 +27,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Search } from "lucide-react";
+import { Plus, Pencil, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { normalizePhoneInput, PHONE_MAX_DIGITS, validatePhone } from "@/lib/phone";
 
 type Customer = {
   id: string;
@@ -51,6 +52,7 @@ export default function ClientesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", customerType: "RETAIL", notes: "" });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     fetch(`/api/customers?search=${encodeURIComponent(search)}`)
@@ -81,6 +83,12 @@ export default function ClientesPage() {
   }
 
   async function save() {
+    const phoneError = validatePhone(form.phone);
+    if (phoneError) {
+      toast.error(phoneError);
+      return;
+    }
+
     if (editing) {
       const res = await fetch(`/api/customers/${editing.id}`, {
         method: "PUT",
@@ -108,6 +116,24 @@ export default function ClientesPage() {
     }
     setOpen(false);
     load();
+  }
+
+  async function removeCustomer(customer: Customer) {
+    if (!confirm(`Excluir o cliente "${customer.name}"?`)) return;
+
+    setDeletingId(customer.id);
+    try {
+      const res = await fetch(`/api/customers/${customer.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao excluir cliente");
+        return;
+      }
+      toast.success("Cliente excluído");
+      load();
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -149,7 +175,7 @@ export default function ClientesPage() {
                   <TableHead>Telefone</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Observações</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
+                  <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -167,9 +193,21 @@ export default function ClientesPage() {
                       <TableCell>{typeLabels[c.customerType] ?? c.customerType}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{c.notes ?? "—"}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(c)} aria-label="Editar cliente">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={deletingId === c.id}
+                            onClick={() => removeCustomer(c)}
+                            aria-label="Excluir cliente"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -192,7 +230,18 @@ export default function ClientesPage() {
             </div>
             <div className="space-y-2">
               <Label>Telefone</Label>
-              <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+              <Input
+                value={form.phone}
+                inputMode="numeric"
+                maxLength={PHONE_MAX_DIGITS}
+                placeholder="83999999999"
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, phone: normalizePhoneInput(e.target.value) }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Apenas números, até {PHONE_MAX_DIGITS} dígitos (DDD + número).
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Tipo</Label>

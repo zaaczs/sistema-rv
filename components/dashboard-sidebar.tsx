@@ -21,6 +21,7 @@ import {
   LogOut,
   Receipt,
   Boxes,
+  Sparkles,
 } from "lucide-react";
 
 const nav = [
@@ -28,6 +29,7 @@ const nav = [
   { href: "/produtos", label: "Produtos / SKUs", icon: Package },
   { href: "/estoque", label: "Estoque", icon: Boxes },
   { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/clube-rv-girls", label: "Clube RV Girls", icon: Sparkles },
   { href: "/vendas", label: "Vendas", icon: ShoppingCart },
   { href: "/insumos", label: "Insumos", icon: Receipt },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
